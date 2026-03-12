@@ -137,6 +137,7 @@ function getNamedRangeValue(rangeName) {
  * status: "active"(預設) | "all"
  */
 function apiGetMembers(params) {
+  params = params || {};  // 防御：確保 params 不為 undefined
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME.MEMBERS);
@@ -220,12 +221,14 @@ function apiGetMembers(params) {
 // ────────────────────────────────────────────────────────────────────
 function apiGetMemberById(params) {
   try {
+    params = params || {};
     if (!params.id) throw new Error('缺少必要參數: id');
 
     const result = apiGetMembers({ status: 'all' });
     if (!result.success) throw new Error(result.error);
 
-    const member = result.data.find(m => m.id === params.id);
+    // result.data 為 { members: [...], total: N }
+    const member = (result.data.members || []).find(m => m.id === params.id);
     if (!member) return apiResponse(false, null, `找不到 ID: ${params.id}`);
 
     return apiResponse(true, member, null);
