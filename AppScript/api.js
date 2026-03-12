@@ -166,8 +166,14 @@ function apiGetMembers(params) {
       const qrCode1 = String(row[9] || '');
       const qrCode2 = String(row[10] || '');
 
-      // 判斷是否有效
-      const isActive = !expiryDate || expiryDate >= today;
+      // 判斷是否有效（三種情境）:
+      // 1. 兩者皆空 → 正式在冊學員，符合条件
+      // 2. 小部分只有 joinDate（期中入班）→ 確認 joinDate <= 今天
+      // 3. 小部分只有 expiryDate（已退出）→ 確認 expiryDate >= 今天
+      // 注意：欄位為空白時一律視為沒有限制（即 active）
+      const joinOk   = !joinDate   || joinDate   <= today; // 無啟用日或已到啟用日
+      const expiryOk = !expiryDate || expiryDate >= today; // 無失效日或尚未到期
+      const isActive = joinOk && expiryOk;
 
       // 篩選條件
       const statusFilter = params.status || 'active';

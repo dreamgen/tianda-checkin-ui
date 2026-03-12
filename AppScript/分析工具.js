@@ -165,3 +165,63 @@ function scanNonEmptyRows() {
     Logger.log(`Row ${i + 1}: 值=${vals} | 公式=${forms}`);
   });
 }
+
+/**
+ * 分析「班員資料」工作表欄位結構
+ * 用途：確認欄位順序，診斷 isActive 邏輯問題
+ * 執行後查看「執行記錄」
+ */
+function analyzeMembersSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('班員資料');
+  if (!sheet) { Logger.log('❌ 找不到「班員資料」！'); return; }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  Logger.log('='.repeat(60));
+  Logger.log('📋 班員資料 - 欄位結構分析');
+  Logger.log(`總列數: ${lastRow} | 總欄數: ${lastCol}`);
+
+  // 1. 標題列
+  Logger.log('\n【Row 1 - 標題列（所有欄）】');
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  headers.forEach((h, i) => {
+    Logger.log(`  Col ${String.fromCharCode(65+i)}(${i+1}): "${h}"`);
+  });
+
+  // 2. 前 5 筆資料的型別與值
+  Logger.log('\n【前 5 筆資料 - 各欄值與型別】');
+  const sampleData = sheet.getRange(2, 1, Math.min(5, lastRow-1), lastCol).getValues();
+  sampleData.forEach((row, ri) => {
+    const rowInfo = row.map((val, ci) => {
+      const type = val instanceof Date ? 'Date:'+val.toISOString().slice(0,10) : `${typeof val}:${JSON.stringify(val)}`;
+      return `C${ci+1}=${type}`;
+    }).join(' | ');
+    Logger.log(`Row ${ri+2}: ${rowInfo}`);
+  });
+
+  // 3. 欄位填寫率（前 100 筆）
+  Logger.log('\n【欄位填寫率（非空白比率，前 100 筆）】');
+  const sampleCount = Math.min(100, lastRow - 1);
+  const allSample = sheet.getRange(2, 1, sampleCount, lastCol).getValues();
+  const filled = new Array(lastCol).fill(0);
+  allSample.forEach(row => row.forEach((val, ci) => { if (val !== '') filled[ci]++; }));
+  headers.forEach((h, i) => {
+    Logger.log(`  Col ${String.fromCharCode(65+i)}(${i+1}) "${h}": ${filled[i]}/${sampleCount} (${Math.round(filled[i]/sampleCount*100)}%)`);
+  });
+
+  // 4. 用舊邏輯計算 active 數
+  Logger.log('\n【舊 isActive 邏輯統計（前 100 筆）】');
+  const today = new Date(); today.setHours(0,0,0,0);
+  let active = 0, inactive = 0;
+  allSample.forEach(row => {
+    const id = String(row[0] || '').trim();
+    if (!id) return;
+    const hVal = row[7];
+    const expiryDate = hVal instanceof Date ? hVal : (hVal ? new Date(hVal) : null);
+    const isActive = !expiryDate || expiryDate >= today;
+    if (isActive) active++; else inactive++;
+  });
+  Logger.log(`  Active(舊邏輯): ${active} | Inactive(排除): ${inactive}`);
+  Logger.log('='.repeat(60));
+}
