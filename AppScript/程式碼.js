@@ -407,6 +407,39 @@ function doGet(e){
 
 }
 
+/**
+ * doPost - 新 API 路由入口
+ * 呼叫 api.js 的 routeApiRequest() 處理所有新 API 請求
+ */
+function doPost(e) {
+  try {
+    let params = {};
+    if (e.postData && e.postData.contents) {
+      params = JSON.parse(e.postData.contents);
+    } else if (e.parameter) {
+      params = e.parameter;
+    }
+
+    const result = routeApiRequest(params);
+
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    Logger.log('doPost 錯誤: ' + err.message);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        data: null,
+        error: err.message,
+        timestamp: new Date().toISOString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
 function uuid() {
   return Utilities.getUuid();
 }
