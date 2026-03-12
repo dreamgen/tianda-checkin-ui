@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="天達報到">
   <meta name="theme-color" content="#2F6783">
   <meta name="description" content="天達大班報到系統 - 現代化報到管理 PWA">
   <title>天達大班報到系統</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +20,7 @@
       theme: {
         extend: {
           colors: {
-            brand: { DEFAULT: "#2F6783", light: "#3d8aa8", dark: "#1e4d63", xdark: "#12303f" },
+            brand: { DEFAULT: "#2F6783", light: "#3d8aa8", dark: "#1e4d63", xdark: "#12303f", pale: "#e0edf5" },
             success: "#10B97A", warning: "#FBBF24", danger: "#F0554C"
           },
           fontFamily: { sans: ["Inter","Noto Sans TC","sans-serif"] }
@@ -28,14 +29,27 @@
     }
   </script>
   <style>
-    :root { --safe-bottom: env(safe-area-inset-bottom, 0px); }
+    /* ── CSS Variables ───────────────────────────────── */
+    :root {
+      --color-primary: #2F6783;
+      --color-primary-dark: #1e4d63;
+      --color-primary-light: #e0edf5;
+      --color-success: #10B97A;
+      --color-warning: #FBBF24;
+      --color-danger: #F0554C;
+      --color-neutral: #8F8F8F;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --radius-card: 16px;
+      --shadow-card: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+    }
+
     html, body { height: 100%; font-family: "Inter","Noto Sans TC",sans-serif; }
     body { background: #f0f4f8; overflow: hidden; }
 
-    /* App Shell */
+    /* ── App Shell ───────────────────────────────────── */
     #app-shell { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 
-    /* Sidebar (desktop) */
+    /* ── Sidebar (desktop) ───────────────────────────── */
     #sidebar { width: 240px; background: linear-gradient(180deg,#2F6783 0%,#1e4d63 100%); color: white; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; }
     @media(max-width:767px){ #sidebar { display:none; } }
     .sidebar-brand { padding: 24px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.15); }
@@ -48,25 +62,23 @@
     .sidebar-item i { width: 20px; text-align: center; font-size: 1rem; }
     .sidebar-divider { height: 1px; background: rgba(255,255,255,.1); margin: 8px 20px; }
 
-    /* Main content area */
+    /* ── Main content area ───────────────────────────── */
     #main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
-    /* Mobile Header */
+    /* ── Mobile Header ───────────────────────────────── */
     #mobile-header { background: #2F6783; color: white; padding: 0 16px; height: 56px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
     #mobile-header h2 { flex: 1; font-size: 1rem; font-weight: 600; }
     #menu-btn { font-size: 1.25rem; cursor: pointer; padding: 8px; }
     @media(min-width:768px){ #mobile-header { display: none; } }
-
-    /* Schedule badge in header */
     #schedule-badge { font-size: .7rem; background: rgba(255,255,255,.2); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
 
-    /* App view container */
+    /* ── App view container ──────────────────────────── */
     #app-view { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: calc(72px + var(--safe-bottom)); }
     @media(min-width:768px){ #app-view { padding-bottom: 16px; } }
     .view-container { animation: fadeIn .2s ease; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 
-    /* Bottom Nav (mobile) */
+    /* ── Bottom Nav (mobile) ─────────────────────────── */
     #bottom-nav { background: white; border-top: 1px solid #e5e7eb; display: flex; padding-bottom: var(--safe-bottom); flex-shrink: 0; box-shadow: 0 -2px 12px rgba(0,0,0,.08); }
     @media(min-width:768px){ #bottom-nav { display: none; } }
     .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px; color: #9ca3af; font-size: .65rem; cursor: pointer; transition: color .15s; border: none; background: none; }
@@ -74,93 +86,157 @@
     .nav-item.active i { font-weight: 900; }
     .nav-item i { font-size: 1.25rem; }
 
-    /* Mobile sidebar overlay */
+    /* ── Mobile sidebar overlay ──────────────────────── */
     #mobile-sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }
     #mobile-sidebar-panel { position:fixed; left:-280px; top:0; bottom:0; width:280px; background:linear-gradient(180deg,#2F6783 0%,#1e4d63 100%); z-index:50; transition:left .25s ease; overflow-y:auto; color:white; }
     #mobile-sidebar-panel.open { left:0; }
     #mobile-sidebar-overlay.open { display:block; }
 
-    /* Cards */
-    .card { background: white; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04); }
+    /* ── Cards ───────────────────────────────────────── */
+    .card { background: white; border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
     .card-header { padding: 16px 20px 12px; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 8px; }
 
-    /* KPI Cards */
-    .kpi-card { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; flex-direction: column; gap: 4px; }
+    /* ── KPI Cards ───────────────────────────────────── */
+    .kpi-card { background: white; border-radius: 14px; padding: 16px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 4px; }
     .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1; }
     .kpi-label { font-size: .75rem; color: #6b7280; }
 
-    /* Status badges */
-    .badge { display: inline-flex; align-items: center; font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+    /* ── Status badges ───────────────────────────────── */
+    .badge { display: inline-flex; align-items: center; gap: 3px; font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
     .badge-present { background: #d1fae5; color: #065f46; }
-    .badge-absent { background: #fee2e2; color: #991b1b; }
-    .badge-leave { background: #fef3c7; color: #92400e; }
-    .badge-late { background: #dbeafe; color: #1e40af; }
+    .badge-absent  { background: #fee2e2; color: #991b1b; }
+    .badge-leave   { background: #fef3c7; color: #92400e; }
+    .badge-late    { background: #dbeafe; color: #1e40af; }
+    .badge-temp    { background: #ede9fe; color: #5b21b6; }
     .badge-unknown { background: #f3f4f6; color: #6b7280; }
+    .badge-active  { background: #d1fae5; color: #065f46; }
+    .badge-mode    { background: #e0edf5; color: #2F6783; }
 
-    /* Member list items */
+    /* Gender badges */
+    .badge-male   { background: #dbeafe; color: #1e40af; }
+    .badge-female { background: #fce7f3; color: #9d174d; }
+
+    /* ── Member items (list) ─────────────────────────── */
     .member-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background .1s; }
     .member-item:hover { background: #f9fafb; }
+    .member-item:last-child { border-bottom: none; }
     .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#2F6783,#3d8aa8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: .875rem; flex-shrink: 0; }
 
-    /* Search input */
+    /* ── Member cards (grid) ─────────────────────────── */
+    .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    @media(min-width:768px){ .member-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
+    .member-card { background: white; border-radius: 14px; padding: 16px 12px; box-shadow: var(--shadow-card); cursor: pointer; transition: all .15s; text-align: center; border: 1.5px solid transparent; }
+    .member-card:hover { border-color: var(--color-primary-light); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(47,103,131,.12); }
+    .member-card-avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#2F6783,#3d8aa8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.25rem; margin: 0 auto 10px; position: relative; }
+    .status-dot { position: absolute; bottom: 0; right: 0; width: 13px; height: 13px; border-radius: 50%; border: 2px solid white; }
+    .status-dot.present { background: var(--color-success); }
+    .status-dot.absent  { background: #e5e7eb; }
+    .status-dot.leave   { background: var(--color-warning); }
+    .member-card-name { font-size: .875rem; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
+    .member-card-meta { font-size: .7rem; color: #9ca3af; margin-bottom: 6px; }
+
+    /* ── Search input ────────────────────────────────── */
     .search-input { width: 100%; padding: 10px 16px 10px 40px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: .9rem; outline: none; background: white; transition: border-color .15s; }
     .search-input:focus { border-color: #2F6783; box-shadow: 0 0 0 3px rgba(47,103,131,.1); }
+    .search-plain { padding-left: 16px !important; }
 
-    /* Buttons */
-    .btn-primary { background: #2F6783; color: white; border: none; border-radius: 12px; padding: 12px 24px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 8px; justify-content: center; }
-    .btn-primary:hover { background: #1e4d63; }
+    /* ── Buttons ─────────────────────────────────────── */
+    .btn-primary   { background: #2F6783; color: white; border: none; border-radius: 12px; padding: 12px 24px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+    .btn-primary:hover  { background: #1e4d63; }
     .btn-primary:active { transform: scale(.97); }
-    .btn-secondary { background: #f3f4f6; color: #374151; border: none; border-radius: 12px; padding: 10px 20px; font-size: .875rem; font-weight: 500; cursor: pointer; transition: all .15s; }
-    .btn-danger { background: #fee2e2; color: #dc2626; border: none; border-radius: 12px; padding: 10px 20px; font-size: .875rem; font-weight: 500; cursor: pointer; }
+    .btn-secondary { background: #f3f4f6; color: #374151; border: none; border-radius: 12px; padding: 10px 20px; font-size: .875rem; font-weight: 500; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+    .btn-secondary:hover { background: #e5e7eb; }
+    .btn-danger    { background: #fee2e2; color: #dc2626; border: none; border-radius: 12px; padding: 10px 20px; font-size: .875rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
 
-    /* Toast */
-    #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    /* ── Toast ───────────────────────────────────────── */
+    #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; min-width: 260px; }
     .toast { background: #1f2937; color: white; padding: 12px 20px; border-radius: 12px; font-size: .875rem; box-shadow: 0 4px 12px rgba(0,0,0,.2); animation: slideDown .25s ease; pointer-events: auto; display: flex; align-items: center; gap: 10px; }
     .toast.success { background: #065f46; }
-    .toast.error { background: #991b1b; }
+    .toast.error   { background: #991b1b; }
     @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }
 
-    /* Loading overlay */
+    /* ── Loading overlay ─────────────────────────────── */
     #loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.85); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
     #loading-overlay.show { display: flex; }
     .spinner { width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #2F6783; border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes spin { to{transform:rotate(360deg)} }
 
-    /* Scanner */
-    #qr-video { width: 100%; height: 100%; object-fit: cover; }
+    /* ── Scanner ─────────────────────────────────────── */
     .scanner-box { position: relative; width: 240px; height: 240px; margin: 0 auto; }
     .scan-line { position: absolute; left: 10px; right: 10px; height: 2px; background: linear-gradient(90deg, transparent, #2F6783, transparent); animation: scanAnim 2s ease-in-out infinite; }
     @keyframes scanAnim { 0%,100%{top:10px;opacity:.5} 50%{top:calc(100% - 12px);opacity:1} }
-    .corner-tl, .corner-tr, .corner-bl, .corner-br { position: absolute; width: 24px; height: 24px; border-color: #2F6783; border-style: solid; }
-    .corner-tl { top:0; left:0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-    .corner-tr { top:0; right:0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-    .corner-bl { bottom:0; left:0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
-    .corner-br { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+    .corner-tl,.corner-tr,.corner-bl,.corner-br { position:absolute; width:24px; height:24px; border-color:#2F6783; border-style:solid; }
+    .corner-tl { top:0; left:0;    border-width:3px 0 0 3px; border-radius:4px 0 0 0; }
+    .corner-tr { top:0; right:0;   border-width:3px 3px 0 0; border-radius:0 4px 0 0; }
+    .corner-bl { bottom:0; left:0; border-width:0 0 3px 3px; border-radius:0 0 0 4px; }
+    .corner-br { bottom:0; right:0;border-width:0 3px 3px 0; border-radius:0 0 4px 0; }
 
-    /* Large text mode */
-    body.large-text .member-item { padding: 16px; }
-    body.large-text .member-item .text-sm { font-size: 1rem !important; }
-    body.large-text .member-item .text-base { font-size: 1.125rem !important; }
-    body.large-text .member-avatar { width: 48px; height: 48px; font-size: 1rem; }
+    /* Scanner success overlay */
+    #scanner-success { display:none; position:absolute; inset:0; background:rgba(16,185,122,.9); align-items:center; justify-content:center; flex-direction:column; color:white; gap:8px; border-radius:12px; }
+    #scanner-success.show { display:flex; animation: popIn .25s ease; }
+    @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
 
-    /* Checkin checkbox */
+    /* ── Toggle switch ───────────────────────────────── */
+    .toggle-switch { width: 48px; height: 26px; border-radius: 99px; background: #d1d5db; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; border: none; padding: 0; }
+    .toggle-switch.on { background: #2F6783; }
+    .toggle-switch::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:white; box-shadow:0 1px 3px rgba(0,0,0,.2); transition:transform .2s; }
+    .toggle-switch.on::after { transform:translateX(22px); }
+
+    /* ── Progress bar ────────────────────────────────── */
+    .progress-bar  { height: 8px; background: #e5e7eb; border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg,#2F6783,#3d8aa8); border-radius: 99px; transition: width .5s ease; }
+
+    /* ── Section headers ─────────────────────────────── */
+    .section-title { font-size: .75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px 6px; }
+
+    /* ── Tabs ────────────────────────────────────────── */
+    .tab-bar  { display: flex; border-bottom: 2px solid #e5e7eb; background: white; }
+    .tab-btn  { flex: 1; padding: 12px 8px; font-size: .875rem; font-weight: 500; color: #6b7280; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+    .tab-btn.active { color: #2F6783; border-bottom-color: #2F6783; font-weight: 600; }
+
+    /* ── Setup prompt ────────────────────────────────── */
+    .setup-prompt { background: linear-gradient(135deg,#2F6783,#1e4d63); color: white; border-radius: 16px; padding: 24px; margin: 16px; text-align: center; }
+
+    /* ── Checkin checkbox ────────────────────────────── */
     .checkin-check { width: 28px; height: 28px; border-radius: 8px; border: 2px solid #d1d5db; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; flex-shrink: 0; }
     .checkin-check.checked { background: #2F6783; border-color: #2F6783; color: white; }
 
-    /* Progress bar */
-    .progress-bar { height: 8px; background: #e5e7eb; border-radius: 99px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, #2F6783, #3d8aa8); border-radius: 99px; transition: width .5s ease; }
+    /* ── Timeline (class-schedule / member-history) ───── */
+    .timeline { position: relative; padding-left: 28px; }
+    .timeline::before { content:''; position:absolute; left:9px; top:0; bottom:0; width:2px; background:#e5e7eb; }
+    .timeline-item { position: relative; padding-bottom: 20px; }
+    .timeline-dot { position:absolute; left:-24px; top:3px; width:12px; height:12px; border-radius:50%; border:2px solid white; background:#d1d5db; box-shadow:0 0 0 2px #e5e7eb; }
+    .timeline-dot.past    { background:#d1d5db; }
+    .timeline-dot.current { background:#2F6783; box-shadow:0 0 0 3px #e0edf5; }
+    .timeline-dot.future  { background:white; border-color:#2F6783; }
+    .timeline-item:last-child { padding-bottom: 0; }
 
-    /* Section headers */
-    .section-title { font-size: .75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px 6px; }
+    /* ── Bottom Sheet ────────────────────────────────── */
+    .bottom-sheet-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; }
+    .bottom-sheet-overlay.open { display:block; }
+    .bottom-sheet { position:fixed; bottom:0; left:0; right:0; background:white; border-radius:20px 20px 0 0; padding:20px; z-index:201; transform:translateY(100%); transition:transform .3s ease; max-height:80vh; overflow-y:auto; }
+    .bottom-sheet.open { transform:translateY(0); }
+    .bottom-sheet-handle { width:36px; height:4px; background:#d1d5db; border-radius:99px; margin:0 auto 16px; }
 
-    /* Tabs */
-    .tab-bar { display: flex; border-bottom: 2px solid #e5e7eb; background: white; }
-    .tab-btn { flex: 1; padding: 12px 8px; font-size: .875rem; font-weight: 500; color: #6b7280; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
-    .tab-btn.active { color: #2F6783; border-bottom-color: #2F6783; font-weight: 600; }
+    /* ── Large text mode ─────────────────────────────── */
+    body.large-text .member-item { padding: 16px; }
+    body.large-text .member-item .text-sm  { font-size: 1rem !important; }
+    body.large-text .member-item .text-base { font-size: 1.125rem !important; }
+    body.large-text .member-avatar { width: 48px; height: 48px; font-size: 1rem; }
 
-    /* Setup prompt */
-    .setup-prompt { background: linear-gradient(135deg,#2F6783,#1e4d63); color: white; border-radius: 16px; padding: 24px; margin: 16px; text-align: center; }
+    /* ── Form inputs ─────────────────────────────────── */
+    .form-input { width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 14px; font-size: .9rem; outline: none; transition: border-color .15s; }
+    .form-input:focus { border-color: #2F6783; box-shadow: 0 0 0 3px rgba(47,103,131,.1); }
+    .form-label { display: block; font-size: .8rem; font-weight: 500; color: #6b7280; margin-bottom: 5px; }
+
+    /* ── Filter pills ────────────────────────────────── */
+    .filter-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--color-primary-light); color: var(--color-primary); border-radius: 99px; padding: 4px 10px; font-size: .75rem; font-weight: 500; }
+    .filter-pill button { line-height: 1; background: none; border: none; cursor: pointer; color: var(--color-primary); opacity: .7; }
+
+    /* ── Divider rows ────────────────────────────────── */
+    .info-row { display: flex; gap: 12px; padding: 10px 16px; align-items: flex-start; }
+    .info-row-label { font-size: .8rem; color: #9ca3af; width: 72px; flex-shrink: 0; padding-top: 1px; }
+    .info-row-value { font-size: .875rem; color: #1f2937; font-weight: 500; flex: 1; }
   </style>
 </head>
 <body>
@@ -171,7 +247,41 @@
 <!-- Loading overlay -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <p class="text-gray-500 text-sm">載入中...</p>
+  <p class="text-gray-500 text-sm" id="loading-msg">載入中...</p>
+</div>
+
+<!-- Bottom Sheet (Quick Search advanced filter) -->
+<div id="qs-sheet-overlay" class="bottom-sheet-overlay" onclick="closeQsSheet()"></div>
+<div id="qs-bottom-sheet" class="bottom-sheet">
+  <div class="bottom-sheet-handle"></div>
+  <h3 class="font-bold text-gray-800 mb-4">進階篩選</h3>
+  <div class="space-y-3">
+    <div>
+      <label class="form-label">區別</label>
+      <select id="qs-adv-unit" class="form-input">
+        <option value="">所有區別</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">班別</label>
+      <select id="qs-adv-class" class="form-input">
+        <option value="">所有班別</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">報到狀態</label>
+      <select id="qs-adv-status" class="form-input">
+        <option value="">所有狀態</option>
+        <option value="present">已報到</option>
+        <option value="absent">未報到</option>
+        <option value="leave">請假</option>
+      </select>
+    </div>
+    <div class="flex gap-2 pt-2">
+      <button onclick="clearQsFilter()" class="btn-secondary flex-1">清除</button>
+      <button onclick="applyQsFilter()" class="btn-primary flex-1">套用篩選</button>
+    </div>
+  </div>
 </div>
 
 <!-- Mobile Sidebar Overlay -->
@@ -181,9 +291,7 @@
     <h1>天達大班報到系統</h1>
     <p id="sidebar-schedule-info-mobile">尚未設定班次</p>
   </div>
-  <nav class="sidebar-nav" id="mobile-sidebar-nav">
-    <!-- populated by JS -->
-  </nav>
+  <nav class="sidebar-nav" id="mobile-sidebar-nav"></nav>
 </div>
 
 <!-- App Shell -->
@@ -194,10 +302,8 @@
       <h1>天達大班<br>報到系統</h1>
       <p id="sidebar-schedule-info">尚未設定班次</p>
     </div>
-    <nav class="sidebar-nav" id="desktop-sidebar-nav">
-      <!-- populated by JS -->
-    </nav>
-    <div class="p-4 text-xs text-white/40 text-center">PWA v1.0</div>
+    <nav class="sidebar-nav" id="desktop-sidebar-nav"></nav>
+    <div class="p-4 text-xs text-white/40 text-center">PWA v1.1</div>
   </aside>
 
   <!-- Main Area -->
@@ -238,48 +344,80 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- VIEW TEMPLATES                                                  -->
+<!-- VIEW TEMPLATES                                                   -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
-<!-- DASHBOARD -->
+<!-- ── DASHBOARD ─────────────────────────────────── -->
 <template id="tpl-dashboard">
   <div class="p-4 space-y-4">
     <div id="dash-setup-prompt" class="setup-prompt hidden">
-      <i class="fa-solid fa-triangle-exclamation text-3xl mb-3 opacity-80"></i>
+      <i class="fa-solid fa-triangle-exclamation text-4xl mb-3 opacity-80 block"></i>
       <h3 class="font-bold text-lg mb-1">尚未設定班次</h3>
       <p class="text-white/80 text-sm mb-4">請先設定本次課程資訊，才能使用報到功能</p>
       <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full">
         <i class="fa-solid fa-gear"></i> 前往工具設定
       </button>
     </div>
+
     <div id="dash-schedule-card" class="card p-4 hidden">
-      <div class="flex items-start justify-between">
+      <div class="flex items-start justify-between gap-2">
         <div>
-          <p class="text-xs text-gray-500 mb-1">當次班程</p>
+          <p class="text-xs text-gray-400 mb-0.5">當次班程</p>
           <h3 id="dash-schedule-title" class="text-lg font-bold text-gray-800"></h3>
-          <p id="dash-schedule-date" class="text-sm text-gray-500 mt-1"></p>
+          <p id="dash-schedule-date" class="text-sm text-gray-500 mt-0.5"></p>
         </div>
-        <span id="dash-mode-badge" class="badge badge-present text-xs"></span>
+        <span id="dash-mode-badge" class="badge badge-mode shrink-0"></span>
       </div>
     </div>
+
     <div id="dash-kpi-row" class="grid grid-cols-2 gap-3 hidden">
-      <div class="kpi-card border-l-4 border-brand">
-        <div id="kpi-present" class="kpi-value text-brand">--</div>
-        <div class="kpi-label">已報到</div>
+      <div class="kpi-card border-l-4 border-success">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fa-solid fa-check-circle text-success text-sm"></i>
+          <span class="kpi-label">已報到</span>
+        </div>
+        <div id="kpi-present" class="kpi-value text-success">--</div>
       </div>
       <div class="kpi-card border-l-4 border-gray-300">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fa-solid fa-clock text-gray-400 text-sm"></i>
+          <span class="kpi-label">未報到</span>
+        </div>
         <div id="kpi-absent" class="kpi-value text-gray-500">--</div>
-        <div class="kpi-label">未報到</div>
       </div>
       <div class="kpi-card border-l-4 border-warning">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fa-solid fa-calendar-xmark text-yellow-500 text-sm"></i>
+          <span class="kpi-label">請假</span>
+        </div>
         <div id="kpi-leave" class="kpi-value text-yellow-600">--</div>
-        <div class="kpi-label">請假</div>
       </div>
-      <div class="kpi-card border-l-4 border-blue-400">
-        <div id="kpi-rate" class="kpi-value text-blue-600">--%</div>
-        <div class="kpi-label">出席率</div>
+      <div class="kpi-card border-l-4 border-brand">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fa-solid fa-percent text-brand text-sm"></i>
+          <span class="kpi-label">出席率</span>
+        </div>
+        <div id="kpi-rate" class="kpi-value text-brand">--%</div>
       </div>
     </div>
+
+    <div id="dash-gender-row" class="grid grid-cols-2 gap-3 hidden">
+      <div class="kpi-card">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge badge-male text-xs">乾</span>
+          <span class="kpi-label">男眾</span>
+        </div>
+        <div id="kpi-male" class="text-2xl font-bold text-blue-600">--</div>
+      </div>
+      <div class="kpi-card">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge badge-female text-xs">坤</span>
+          <span class="kpi-label">女眾</span>
+        </div>
+        <div id="kpi-female" class="text-2xl font-bold text-pink-500">--</div>
+      </div>
+    </div>
+
     <div id="dash-progress-card" class="card p-4 hidden">
       <div class="flex justify-between text-sm mb-2">
         <span class="font-medium text-gray-700">出席進度</span>
@@ -289,48 +427,56 @@
         <div id="dash-progress-fill" class="progress-fill" style="width:0%"></div>
       </div>
     </div>
+
     <div class="card hidden" id="dash-actions">
       <div class="card-header"><i class="fa-solid fa-bolt text-brand"></i> 快速操作</div>
       <div class="p-4 grid grid-cols-2 gap-3">
-        <button onclick="Router.navigateTo('scanner')" class="btn-primary text-sm py-3">
+        <button onclick="Router.navigateTo('scanner')" class="btn-primary text-sm py-3 w-full">
           <i class="fa-solid fa-qrcode"></i> QR 掃描
         </button>
-        <button onclick="Router.navigateTo('manual-checkin')" class="btn-primary text-sm py-3">
+        <button onclick="Router.navigateTo('manual-checkin')" class="btn-primary text-sm py-3 w-full">
           <i class="fa-solid fa-list-check"></i> 簡易報到
         </button>
-        <button onclick="Router.navigateTo('quick-search')" class="btn-secondary text-sm py-3">
+        <button onclick="Router.navigateTo('quick-search')" class="btn-secondary text-sm py-3 w-full">
           <i class="fa-solid fa-magnifying-glass"></i> 快速查詢
         </button>
-        <button onclick="Router.navigateTo('attendance-stats')" class="btn-secondary text-sm py-3">
+        <button onclick="Router.navigateTo('attendance-stats')" class="btn-secondary text-sm py-3 w-full">
           <i class="fa-solid fa-chart-bar"></i> 出席統計
         </button>
       </div>
     </div>
+
     <div id="dash-by-unit" class="card hidden">
-      <div class="card-header"><i class="fa-solid fa-map-marker-alt text-brand"></i> 各區出席</div>
-      <div id="dash-unit-list" class="divide-y divide-gray-100"></div>
+      <div class="card-header"><i class="fa-solid fa-location-dot text-brand"></i> 各區出席</div>
+      <div id="dash-unit-list" class="p-3 space-y-3"></div>
     </div>
+
     <p id="dash-updated" class="text-xs text-center text-gray-400"></p>
   </div>
 </template>
 
-<!-- SCANNER -->
+<!-- ── SCANNER ────────────────────────────────────── -->
 <template id="tpl-scanner">
   <div class="flex flex-col" style="min-height:calc(100vh - 130px)">
     <div class="p-4 space-y-3">
       <div id="scanner-setup-warn" class="hidden setup-prompt">
-        <i class="fa-solid fa-triangle-exclamation text-2xl mb-2"></i>
-        <p class="font-semibold mb-2">尚未設定班次</p>
+        <i class="fa-solid fa-triangle-exclamation text-3xl mb-2 block"></i>
+        <p class="font-semibold mb-3">尚未設定班次</p>
         <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full text-sm">前往設定</button>
       </div>
       <div id="scanner-main" class="hidden space-y-3">
         <div class="card overflow-hidden">
-          <div class="relative bg-black" style="height:260px">
-            <div id="reader" style="width:100%;height:100%"></div>
+          <div class="relative bg-black" style="height:280px">
+            <div id="reader" style="width:100%;height:100%;"></div>
             <div class="scanner-box absolute" style="top:50%;left:50%;transform:translate(-50%,-50%)">
               <div class="corner-tl"></div><div class="corner-tr"></div>
               <div class="corner-bl"></div><div class="corner-br"></div>
               <div class="scan-line"></div>
+            </div>
+            <div id="scanner-success">
+              <i class="fa-solid fa-circle-check text-5xl mb-2"></i>
+              <p id="scanner-success-name" class="font-bold text-lg"></p>
+              <p id="scanner-success-info" class="text-sm opacity-80"></p>
             </div>
           </div>
           <div class="p-3 flex gap-2">
@@ -344,9 +490,9 @@
         </div>
         <div id="scanner-result" class="card p-4 hidden"></div>
         <div class="card p-4">
-          <p class="text-sm font-medium text-gray-700 mb-2">手動輸入 ID</p>
+          <p class="text-sm font-medium text-gray-700 mb-2">手動輸入班員 ID</p>
           <div class="flex gap-2">
-            <input type="text" id="manual-id-input" placeholder="輸入班員編號" class="search-input flex-1 pl-4">
+            <input type="text" id="manual-id-input" placeholder="輸入班員編號" class="search-input search-plain flex-1">
             <button onclick="manualLookup()" class="btn-primary px-4 py-2 text-sm">查詢</button>
           </div>
         </div>
@@ -355,25 +501,25 @@
   </div>
 </template>
 
-<!-- MANUAL CHECKIN -->
+<!-- ── MANUAL CHECKIN ─────────────────────────────── -->
 <template id="tpl-manual-checkin">
-  <div class="flex flex-col" style="min-height:calc(100vh - 130px)">
+  <div class="flex flex-col">
     <div class="p-4 space-y-3">
       <div class="card p-3">
-        <div class="flex gap-2 mb-2">
+        <div class="flex gap-2 mb-3">
           <div class="relative flex-1">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
             <input type="text" id="mc-search" placeholder="搜尋姓名…" class="search-input w-full" oninput="filterMemberList()">
           </div>
-          <button onclick="toggleLargeText()" id="mc-large-btn" class="btn-secondary px-3 py-2 text-sm" title="大字版">
+          <button onclick="toggleLargeText()" id="mc-large-btn" class="btn-secondary px-3 py-2 text-sm shrink-0" title="大字版">
             <i class="fa-solid fa-text-height"></i>
           </button>
         </div>
         <div class="flex gap-2 flex-wrap">
-          <select id="mc-filter-unit" onchange="filterMemberList()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
+          <select id="mc-filter-unit" onchange="filterMemberList()" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
             <option value="">所有區別</option>
           </select>
-          <select id="mc-filter-status" onchange="filterMemberList()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
+          <select id="mc-filter-status" onchange="filterMemberList()" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
             <option value="">所有狀態</option>
             <option value="unchecked">未報到</option>
             <option value="checked">已報到</option>
@@ -381,22 +527,29 @@
           </select>
         </div>
       </div>
+
       <div class="flex justify-between items-center px-1">
         <p id="mc-count" class="text-sm text-gray-500"></p>
         <div class="flex gap-2 items-center">
-          <span id="mc-selected-count" class="text-sm font-medium text-brand hidden"></span>
+          <span id="mc-selected-count" class="text-sm font-semibold text-brand hidden"></span>
           <button id="mc-submit-btn" onclick="submitCheckins()" class="btn-primary text-sm px-4 py-2 hidden">
             <i class="fa-solid fa-paper-plane"></i> 送出報到
           </button>
         </div>
       </div>
+
       <div id="mc-member-list" class="card divide-y divide-gray-100">
-        <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
+        <div class="p-10 text-center text-gray-400">
+          <div class="spinner mx-auto mb-3"></div>載入中…
+        </div>
       </div>
-      <div class="card p-3">
-        <p class="text-sm font-medium text-gray-700 mb-2"><i class="fa-solid fa-user-plus text-brand"></i> 臨時報到</p>
+
+      <div class="card p-4">
+        <p class="text-sm font-semibold text-gray-700 mb-3">
+          <i class="fa-solid fa-user-plus text-brand mr-1"></i> 臨時報到
+        </p>
         <div class="flex gap-2">
-          <input type="text" id="temp-name" placeholder="臨時來賓姓名" class="search-input flex-1 pl-4">
+          <input type="text" id="temp-name" placeholder="臨時來賓姓名" class="search-input search-plain flex-1">
           <button onclick="submitTempCheckin()" class="btn-primary px-4 text-sm">報到</button>
         </div>
       </div>
@@ -404,32 +557,32 @@
   </div>
 </template>
 
-<!-- QUICK SEARCH -->
+<!-- ── QUICK SEARCH ───────────────────────────────── -->
 <template id="tpl-quick-search">
   <div class="p-4 space-y-3">
-    <div class="relative">
-      <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-      <input type="text" id="qs-input" placeholder="輸入姓名或編號搜尋…" class="search-input w-full text-base"
-        oninput="quickSearch(this.value)" autofocus>
+    <div class="flex gap-2">
+      <div class="relative flex-1">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+        <input type="text" id="qs-input" placeholder="輸入姓名或編號搜尋…" class="search-input w-full text-base"
+          oninput="quickSearch(this.value)" autofocus>
+      </div>
+      <button onclick="openQsSheet()" class="btn-secondary px-3 shrink-0" title="進階篩選">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
     </div>
-    <div id="qs-filters" class="flex gap-2 flex-wrap">
-      <select id="qs-filter-unit" onchange="quickSearch(document.getElementById('qs-input').value)" class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
-        <option value="">所有區別</option>
-      </select>
-      <select id="qs-filter-status" onchange="quickSearch(document.getElementById('qs-input').value)" class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
-        <option value="">所有狀態</option>
-        <option value="present">已報到</option>
-        <option value="absent">未報到</option>
-        <option value="leave">請假</option>
-      </select>
-    </div>
+
+    <div id="qs-active-pills" class="flex gap-2 flex-wrap hidden"></div>
+
     <div id="qs-results" class="card divide-y divide-gray-100">
-      <div class="p-8 text-center text-gray-400"><i class="fa-solid fa-magnifying-glass text-3xl mb-2 block opacity-30"></i>輸入姓名開始搜尋</div>
+      <div class="p-10 text-center text-gray-400">
+        <i class="fa-solid fa-magnifying-glass text-3xl mb-2 block opacity-30"></i>
+        輸入姓名開始搜尋
+      </div>
     </div>
   </div>
 </template>
 
-<!-- MEMBER LIST -->
+<!-- ── MEMBER LIST ────────────────────────────────── -->
 <template id="tpl-member-list">
   <div class="p-4 space-y-3">
     <div class="relative">
@@ -444,187 +597,327 @@
         <option value="">所有班別</option>
       </select>
     </div>
-    <p id="ml-count" class="text-xs text-gray-500 px-1"></p>
-    <div id="ml-list" class="card divide-y divide-gray-100">
-      <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
+    <div class="flex items-center justify-between px-1">
+      <p id="ml-count" class="text-xs text-gray-500"></p>
+      <div id="ml-view-toggle" class="flex gap-1">
+        <button onclick="setMlView('list')" id="ml-btn-list" class="btn-secondary px-2 py-1 text-xs">
+          <i class="fa-solid fa-list"></i>
+        </button>
+        <button onclick="setMlView('grid')" id="ml-btn-grid" class="btn-secondary px-2 py-1 text-xs">
+          <i class="fa-solid fa-grip"></i>
+        </button>
+      </div>
+    </div>
+    <div id="ml-list">
+      <div class="card p-10 text-center text-gray-400">
+        <div class="spinner mx-auto mb-3"></div>載入中…
+      </div>
     </div>
   </div>
 </template>
 
-<!-- MEMBER DETAIL -->
+<!-- ── MEMBER DETAIL ──────────────────────────────── -->
 <template id="tpl-member-detail">
   <div>
-    <div id="md-header" class="bg-gradient-to-b from-brand to-brand-dark text-white p-6 text-center">
-      <div id="md-avatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold mx-auto mb-3"></div>
+    <div class="bg-gradient-to-b from-brand to-brand-dark text-white p-6 text-center relative">
+      <button onclick="history.back()" class="absolute left-4 top-4 text-white/80 hover:text-white p-2">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div id="md-avatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold mx-auto mb-3"></div>
       <h2 id="md-name" class="text-2xl font-bold"></h2>
       <p id="md-id" class="text-white/70 text-sm mt-1"></p>
       <div class="flex justify-center gap-4 mt-4 text-sm">
-        <div><div id="md-unit" class="font-semibold"></div><div class="text-white/60 text-xs">區別</div></div>
+        <div>
+          <div id="md-unit" class="font-semibold"></div>
+          <div class="text-white/60 text-xs">區別</div>
+        </div>
         <div class="w-px bg-white/20"></div>
-        <div><div id="md-class" class="font-semibold"></div><div class="text-white/60 text-xs">班級</div></div>
+        <div>
+          <div id="md-class" class="font-semibold"></div>
+          <div class="text-white/60 text-xs">班級</div>
+        </div>
         <div class="w-px bg-white/20"></div>
-        <div><div id="md-gender" class="font-semibold"></div><div class="text-white/60 text-xs">乾坤</div></div>
+        <div>
+          <div id="md-gender" class="font-semibold"></div>
+          <div class="text-white/60 text-xs">乾坤</div>
+        </div>
       </div>
     </div>
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab-target="md-basic" onclick="switchMdTab(this)">基本資料</button>
-      <button class="tab-btn" data-tab-target="md-history" onclick="switchMdTab(this)">出席歷程</button>
+
+    <div class="tab-bar sticky top-0 z-10">
+      <button class="tab-btn active" data-tab-target="md-basic" onclick="switchMdTab(this)">
+        <i class="fa-solid fa-id-card mr-1"></i> 基本資料
+      </button>
+      <button class="tab-btn" data-tab-target="md-history" onclick="switchMdTab(this)">
+        <i class="fa-solid fa-clock-rotate-left mr-1"></i> 出席歷程
+      </button>
     </div>
+
     <div id="md-basic" class="p-4 space-y-3">
       <div class="card divide-y divide-gray-100">
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">特殊註記</span><span id="md-note" class="text-sm font-medium"></span></div>
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">組別</span><span id="md-group" class="text-sm font-medium"></span></div>
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">QR Code</span>
-          <div id="md-qr-area"><a id="md-qr-link" href="#" target="_blank" class="text-brand text-sm underline">查看 QR Code</a></div>
+        <div class="info-row">
+          <span class="info-row-label">特殊註記</span>
+          <span id="md-note" class="info-row-value"></span>
         </div>
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">備註</span><span id="md-remarks" class="text-sm"></span></div>
+        <div class="info-row">
+          <span class="info-row-label">組別</span>
+          <span id="md-group" class="info-row-value"></span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-label">QR Code</span>
+          <div id="md-qr-area" class="info-row-value">
+            <a id="md-qr-link" href="#" target="_blank" class="text-brand text-sm underline">查看 QR Code</a>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-label">備註</span>
+          <span id="md-remarks" class="info-row-value"></span>
+        </div>
       </div>
       <button id="md-checkin-btn" onclick="checkinThisMember()" class="btn-primary w-full hidden">
         <i class="fa-solid fa-check-circle"></i> 為此班員報到
       </button>
     </div>
+
     <div id="md-history" class="hidden p-4">
-      <div id="md-history-list" class="space-y-2">
-        <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
+      <div id="md-history-list" class="timeline">
+        <div class="p-10 text-center text-gray-400">
+          <div class="spinner mx-auto mb-3"></div>載入中…
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-<!-- CLASS VIEW -->
+<!-- ── CLASS VIEW ─────────────────────────────────── -->
 <template id="tpl-class-view">
   <div class="p-4 space-y-3">
-    <div class="card p-3 flex gap-2">
-      <div class="relative flex-1">
-        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-        <input type="text" id="cv-search" placeholder="搜尋班員…" class="search-input" oninput="filterClassView()">
-      </div>
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+      <input type="text" id="cv-search" placeholder="搜尋班員…" class="search-input w-full" oninput="filterClassView()">
     </div>
     <div id="cv-class-list" class="space-y-3">
-      <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
+      <div class="card p-10 text-center text-gray-400">
+        <div class="spinner mx-auto mb-3"></div>載入中…
+      </div>
     </div>
   </div>
 </template>
 
-<!-- ATTENDANCE STATS -->
+<!-- ── ATTENDANCE STATS ───────────────────────────── -->
 <template id="tpl-attendance-stats">
   <div class="p-4 space-y-4">
     <div id="stats-no-schedule" class="setup-prompt hidden">
-      <i class="fa-solid fa-chart-bar text-3xl mb-2"></i>
-      <p class="font-semibold">尚未設定班次</p>
-      <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full mt-3 text-sm">前往設定</button>
+      <i class="fa-solid fa-chart-bar text-3xl mb-2 block"></i>
+      <p class="font-semibold mb-3">尚未設定班次</p>
+      <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full mt-1 text-sm">前往設定</button>
     </div>
     <div id="stats-main" class="hidden space-y-4">
-      <div class="grid grid-cols-2 gap-3">
-        <div class="kpi-card border-l-4 border-brand col-span-2">
-          <div class="flex justify-between items-start">
-            <div><div id="stats-present" class="kpi-value text-brand">--</div><div class="kpi-label">已出席</div></div>
-            <div class="text-right"><div id="stats-rate" class="text-2xl font-bold text-brand">--%</div><div class="kpi-label">出席率</div></div>
+      <!-- Main KPI -->
+      <div class="card p-4">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">總出席</p>
+            <div class="flex items-end gap-2">
+              <span id="stats-present" class="text-4xl font-bold text-brand">--</span>
+              <span id="stats-total-label" class="text-gray-400 text-sm mb-1">/ --</span>
+            </div>
           </div>
-          <div class="progress-bar mt-2"><div id="stats-fill" class="progress-fill" style="width:0%"></div></div>
+          <div class="text-right">
+            <div id="stats-rate" class="text-3xl font-bold text-brand">--%</div>
+            <div class="text-xs text-gray-400">出席率</div>
+          </div>
         </div>
-        <div class="kpi-card"><div id="stats-male" class="kpi-value text-blue-600">--</div><div class="kpi-label">乾 (男)</div></div>
-        <div class="kpi-card"><div id="stats-female" class="kpi-value text-pink-500">--</div><div class="kpi-label">坤 (女)</div></div>
-        <div class="kpi-card"><div id="stats-leave" class="kpi-value text-yellow-600">--</div><div class="kpi-label">請假</div></div>
-        <div class="kpi-card"><div id="stats-absent" class="kpi-value text-gray-500">--</div><div class="kpi-label">未報到</div></div>
+        <div class="progress-bar"><div id="stats-fill" class="progress-fill" style="width:0%"></div></div>
       </div>
+
+      <!-- Gender KPI -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="kpi-card">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="badge badge-male text-xs">乾</span>
+            <span class="kpi-label">男眾</span>
+          </div>
+          <div id="stats-male" class="kpi-value text-blue-600">--</div>
+        </div>
+        <div class="kpi-card">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="badge badge-female text-xs">坤</span>
+            <span class="kpi-label">女眾</span>
+          </div>
+          <div id="stats-female" class="kpi-value text-pink-500">--</div>
+        </div>
+        <div class="kpi-card">
+          <div class="flex items-center gap-2 mb-1">
+            <i class="fa-solid fa-calendar-xmark text-yellow-500 text-xs"></i>
+            <span class="kpi-label">請假</span>
+          </div>
+          <div id="stats-leave" class="kpi-value text-yellow-600">--</div>
+        </div>
+        <div class="kpi-card">
+          <div class="flex items-center gap-2 mb-1">
+            <i class="fa-solid fa-circle-xmark text-gray-400 text-xs"></i>
+            <span class="kpi-label">未報到</span>
+          </div>
+          <div id="stats-absent" class="kpi-value text-gray-500">--</div>
+        </div>
+      </div>
+
+      <!-- Unit bar chart -->
       <div class="card">
-        <div class="card-header"><i class="fa-solid fa-map-marker-alt text-brand"></i> 各區出席狀況</div>
-        <div id="stats-unit-list" class="divide-y divide-gray-100 p-4 space-y-3"></div>
+        <div class="card-header"><i class="fa-solid fa-location-dot text-brand"></i> 各區出席狀況</div>
+        <div id="stats-unit-list" class="p-4 space-y-4"></div>
       </div>
     </div>
   </div>
 </template>
 
-<!-- CLASS SCHEDULE -->
+<!-- ── CLASS SCHEDULE ─────────────────────────────── -->
 <template id="tpl-class-schedule">
   <div class="p-4 space-y-3">
-    <div class="card p-3 flex gap-2">
-      <select id="cs-filter" onchange="loadScheduleView()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white flex-1">
+    <div class="flex gap-2">
+      <select id="cs-filter" onchange="loadScheduleView()" class="form-input flex-1 text-sm">
         <option value="all">所有班程</option>
         <option value="future">未來班程</option>
         <option value="past">過去班程</option>
       </select>
     </div>
     <div id="cs-list" class="space-y-2">
-      <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
+      <div class="card p-10 text-center text-gray-400">
+        <div class="spinner mx-auto mb-3"></div>載入中…
+      </div>
     </div>
   </div>
 </template>
 
-<!-- SETTINGS -->
+<!-- ── SETTINGS ───────────────────────────────────── -->
 <template id="tpl-settings">
-  <div class="p-4 space-y-4">
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-calendar-check text-brand"></i> 班程設定</div>
-      <div class="p-4 space-y-3">
-        <div>
-          <label class="text-sm font-medium text-gray-700 block mb-1">從系統取得當前班程</label>
-          <button onclick="fetchActiveSchedule()" class="btn-secondary w-full text-sm py-2">
-            <i class="fa-solid fa-cloud-arrow-down"></i> 自動填入
+  <div class="p-4 space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start">
+    <!-- Left column: schedule settings -->
+    <div class="space-y-4">
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-calendar-check text-brand"></i> 班程設定</div>
+        <div class="p-4 space-y-3">
+          <button onclick="fetchActiveSchedule()" class="btn-secondary w-full text-sm py-2.5">
+            <i class="fa-solid fa-cloud-arrow-down"></i> 自動填入當前班程
           </button>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">班程日期</label>
-            <input type="date" id="st-date" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">班程日期</label>
+              <input type="date" id="st-date" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">班別代碼</label>
+              <input type="text" id="st-classcode" placeholder="如：1" class="form-input">
+            </div>
           </div>
           <div>
-            <label class="text-xs text-gray-500 block mb-1">班別代碼</label>
-            <input type="text" id="st-classcode" placeholder="如：1" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
+            <label class="form-label">班別名稱（顯示用）</label>
+            <input type="text" id="st-classname" placeholder="如：明理班" class="form-input">
           </div>
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">班別名稱 (顯示用)</label>
-          <input type="text" id="st-classname" placeholder="如：明理班" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">驗證密碼 (CheckPassToday)</label>
-          <input type="text" id="st-verify" placeholder="今日驗證密碼" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">出勤方式</label>
-          <div class="flex gap-2">
-            <button id="btn-mode-physical" onclick="setMode('實體')" class="flex-1 py-2 text-sm rounded-xl border-2 border-brand bg-brand text-white font-medium">實體</button>
-            <button id="btn-mode-online" onclick="setMode('線上')" class="flex-1 py-2 text-sm rounded-xl border-2 border-gray-200 text-gray-600 font-medium">線上</button>
+          <div>
+            <label class="form-label">驗證密碼 (CheckPassToday)</label>
+            <input type="text" id="st-verify" placeholder="今日驗證密碼" class="form-input">
           </div>
-        </div>
-        <button onclick="saveSettings()" class="btn-primary w-full">
-          <i class="fa-solid fa-floppy-disk"></i> 儲存設定
-        </button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-sliders text-brand"></i> 應用設定</div>
-      <div class="divide-y divide-gray-100">
-        <div class="flex items-center justify-between p-4">
-          <div><p class="text-sm font-medium text-gray-700">大字版模式</p><p class="text-xs text-gray-400">簡易報到列表放大字體</p></div>
-          <button id="toggle-large-text" onclick="toggleLargeTextSetting()" class="w-12 h-6 rounded-full bg-gray-200 relative transition-colors duration-200">
-            <div class="w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200"></div>
+          <div>
+            <label class="form-label">出勤方式</label>
+            <div class="flex gap-2">
+              <button id="btn-mode-physical" onclick="setMode('實體')" class="flex-1 py-2.5 text-sm rounded-xl border-2 border-brand bg-brand text-white font-semibold">
+                <i class="fa-solid fa-person-walking mr-1"></i>實體
+              </button>
+              <button id="btn-mode-online" onclick="setMode('線上')" class="flex-1 py-2.5 text-sm rounded-xl border-2 border-gray-200 text-gray-600 font-semibold">
+                <i class="fa-solid fa-video mr-1"></i>線上
+              </button>
+            </div>
+          </div>
+          <button onclick="saveSettings()" class="btn-primary w-full">
+            <i class="fa-solid fa-floppy-disk"></i> 儲存設定
           </button>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-sliders text-brand"></i> 應用設定</div>
+        <div class="divide-y divide-gray-100">
+          <div class="flex items-center justify-between p-4">
+            <div>
+              <p class="text-sm font-medium text-gray-700">大字版模式</p>
+              <p class="text-xs text-gray-400">簡易報到列表放大字體</p>
+            </div>
+            <button id="toggle-large-text" onclick="toggleLargeTextSetting()" class="toggle-switch"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-circle-info text-brand"></i> 目前設定</div>
+        <div id="current-settings-display" class="p-4 space-y-2 text-sm text-gray-600 divide-y divide-gray-50"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-database text-brand"></i> 資料管理</div>
+        <div class="p-4 flex gap-2">
+          <button onclick="State.clearMemberCache(); showToast('班員快取已清除','success')" class="btn-secondary text-sm flex-1">
+            <i class="fa-solid fa-trash-can"></i> 清除快取
+          </button>
+          <button onclick="Router.navigateTo('class-schedule')" class="btn-secondary text-sm flex-1">
+            <i class="fa-solid fa-calendar"></i> 班程資料
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-circle-info text-brand"></i> 目前設定</div>
-      <div id="current-settings-display" class="p-4 space-y-2 text-sm text-gray-600"></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-database text-brand"></i> 資料管理</div>
-      <div class="p-4 flex gap-2">
-        <button onclick="State.clearMemberCache(); showToast('班員快取已清除','success')" class="btn-secondary text-sm flex-1">
-          <i class="fa-solid fa-trash-can"></i> 清除快取
-        </button>
-        <button onclick="Router.navigateTo('class-schedule')" class="btn-secondary text-sm flex-1">
-          <i class="fa-solid fa-calendar"></i> 班程資料
-        </button>
+
+    <!-- Right column: share / QR -->
+    <div class="space-y-4">
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-share-nodes text-brand"></i> 分享設定連結</div>
+        <div class="p-4 space-y-3">
+          <p class="text-sm text-gray-500">產生包含當前設定的分享連結，掃描即可快速套用</p>
+          <button onclick="generateShareQR()" class="btn-secondary w-full text-sm">
+            <i class="fa-solid fa-qrcode"></i> 產生 QR Code
+          </button>
+          <div id="st-qr-area" class="hidden text-center">
+            <img id="st-qr-img" src="" alt="分享 QR Code" class="mx-auto rounded-xl mb-3" style="width:180px;height:180px">
+            <div id="st-share-url" class="text-xs text-gray-400 break-all bg-gray-50 rounded-lg p-2 mb-2"></div>
+            <button onclick="copyShareUrl()" class="btn-secondary text-sm w-full">
+              <i class="fa-regular fa-copy"></i> 複製連結
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-mobile-screen text-brand"></i> 部署資訊</div>
+        <div class="p-4 space-y-2 text-sm text-gray-600">
+          <div class="flex gap-2 items-start">
+            <i class="fa-brands fa-github text-gray-400 mt-0.5 shrink-0"></i>
+            <div>
+              <p class="font-medium text-gray-700">GitHub Pages</p>
+              <p class="text-xs text-gray-400">透過 GitHub Pages 部署，無需後端伺服器</p>
+            </div>
+          </div>
+          <div class="flex gap-2 items-start">
+            <i class="fa-solid fa-wifi text-gray-400 mt-0.5 shrink-0"></i>
+            <div>
+              <p class="font-medium text-gray-700">離線支援</p>
+              <p class="text-xs text-gray-400">Service Worker 快取靜態資源，API 需網路</p>
+            </div>
+          </div>
+          <div class="flex gap-2 items-start">
+            <i class="fa-solid fa-download text-gray-400 mt-0.5 shrink-0"></i>
+            <div>
+              <p class="font-medium text-gray-700">安裝為 App</p>
+              <p class="text-xs text-gray-400">在瀏覽器選單點「加到主畫面」即可安裝</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS                                                         -->
+<!-- SCRIPTS                                                          -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <script src="js/api.js"></script>
 <script src="js/state.js"></script>
