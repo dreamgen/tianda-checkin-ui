@@ -145,8 +145,13 @@ function apiGetMembers(params) {
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return apiResponse(true, [], null);
 
-    // 欄位: A=編號, B=姓名, C=所屬單位, D=班級, E=乾坤, F=組別, G=啟用日期, H=失效日期, I=備註, J=QR1, K=QR2
-    const data = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
+    // ✅ 正確欄位對應（依診斷確認）：
+    // A(0):編號, B(1):姓名, C(2):所屬單位, D(3):班級,
+    // E(4):特殊註記, F(5):乾坤, G(6):組別,
+    // H(7):QRCODE(IMAGE-SKIP), I(8):啟用日期, J(9):失效日期,
+    // K(10):備註, L(11):QRCODE1(IMAGE-SKIP), M(12):QRCODE2(IMAGE-SKIP),
+    // N(13):QRCODE3(IMAGE-SKIP), O(14):QRCODEURL, P(15):QRCODEIMAGE
+    const data = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -155,56 +160,60 @@ function apiGetMembers(params) {
       const id = String(row[0] || '').trim();
       if (!id) return;
 
-      const name = String(row[1] || '');
-      const unit = String(row[2] || '');
-      const classGroup = String(row[3] || '');
-      const gender = String(row[4] || '');
-      const group = String(row[5] || '');
-      const joinDate = row[6] ? new Date(row[6]) : null;
-      const expiryDate = row[7] ? new Date(row[7]) : null;
-      const notes = String(row[8] || '');
-      const qrCode1 = String(row[9] || '');
-      const qrCode2 = String(row[10] || '');
+      const name        = String(row[1]  || '');
+      const unit        = String(row[2]  || '');
+      const classGroup  = String(row[3]  || '');
+      const specialNote = String(row[4]  || '');  // E: 特殊註記
+      const gender      = String(row[5]  || '');  // F: 乾坤
+      const group       = String(row[6]  || '');  // G: 組別
+      // row[7] = H: QRCODE (IMAGE object) → 跳過，不轉為字串
+      // row[8] = I: 啟用日期，row[9] = J: 失效日期
+      const joinDate   = row[8]  instanceof Date ? row[8]  : (row[8]  ? new Date(row[8])  : null);
+      const expiryDate = row[9]  instanceof Date ? row[9]  : (row[9]  ? new Date(row[9])  : null);
+      const notes      = String(row[10] || '');   // K: 備註
+      // row[11~13]: QRCODE 1~3 (IMAGE) → 跳過
+      const qrCodeUrl  = String(row[14] || '');   // O: QRCODEURL（完整報到用 URL）
+      const qrCodeImg  = String(row[15] || '');   // P: QRCODEIMAGE（QR 圖片 URL）
 
-      // 判斷是否有效（三種情境）:
-      // 1. 兩者皆空 → 正式在冊學員，符合条件
-      // 2. 小部分只有 joinDate（期中入班）→ 確認 joinDate <= 今天
-      // 3. 小部分只有 expiryDate（已退出）→ 確認 expiryDate >= 今天
-      // 注意：欄位為空白時一律視為沒有限制（即 active）
-      const joinOk   = !joinDate   || joinDate   <= today; // 無啟用日或已到啟用日
-      const expiryOk = !expiryDate || expiryDate >= today; // 無失效日或尚未到期
+      // 判斷是否有效（空白 = 無限制 = active）:
+      // - joinDate 空白或已到啟用日 → OK
+      // - expiryDate 空白或尚未到期 → OK
+      const joinOk   = !joinDate   || joinDate   <= today;
+      const expiryOk = !expiryDate || expiryDate >= today;
       const isActive = joinOk && expiryOk;
 
       // 篩選條件
       const statusFilter = params.status || 'active';
       if (statusFilter === 'active' && !isActive) return;
-      if (params.unit && unit !== params.unit) return;
-      if (params.class && !classGroup.includes(params.class)) return;
-      if (params.gender && gender !== params.gender) return;
+      if (params.unit   && unit      !== params.unit)         return;
+      if (params.class  && !classGroup.includes(params.class)) return;
+      if (params.gender && gender    !== params.gender)        return;
 
       result.push({
-        id: id,
-        name: name,
-        unit: unit,
-        class: classGroup,
-        gender: gender,
-        group: group,
-        isActive: isActive,
-        joinDate: joinDate ? Utilities.formatDate(joinDate, 'Asia/Taipei', 'yyyy-MM-dd') : null,
-        expiryDate: expiryDate ? Utilities.formatDate(expiryDate, 'Asia/Taipei', 'yyyy-MM-dd') : null,
-        notes: notes,
-        qrCode1: qrCode1,
-        qrCode2: qrCode2
+        id:           id,
+        name:         name,
+        unit:         unit,
+        class:        classGroup,
+        gender:       gender,
+        group:        group,
+        specialNote:  specialNote,
+        isActive:     isActive,
+        joinDate:     joinDate   ? Utilities.formatDate(joinDate,   'Asia/Taipei', 'yyyy-MM-dd') : null,
+        expiryDate:   expiryDate ? Utilities.formatDate(expiryDate, 'Asia/Taipei', 'yyyy-MM-dd') : null,
+        notes:        notes,
+        qrCodeUrl:    qrCodeUrl,
+        qrCodeImg:    qrCodeImg
       });
     });
 
-    return apiResponse(true, result, null);
+    return apiResponse(true, { members: result, total: result.length }, null);
 
   } catch(e) {
     Logger.log('apiGetMembers 錯誤: ' + e.message + '\n' + e.stack);
     return apiResponse(false, null, e.message);
   }
 }
+
 
 // ────────────────────────────────────────────────────────────────────
 // API 2: getMemberById — 取得單一班員詳細資料
