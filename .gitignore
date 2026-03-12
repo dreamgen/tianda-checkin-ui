@@ -23,3 +23,6 @@ yarn-error.log*
 
 # Ignore analysis txt
 checkin_analysis.txt
+
+# CLASP (Apps Script CLI) - contains sensitive script ID
+AppScript/.clasp.json

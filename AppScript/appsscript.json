@@ -1,0 +1,34 @@
+{
+  "timeZone": "Asia/Hong_Kong",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "sheets": {
+    "macros": [
+      {
+        "menuName": "checkQRCODE",
+        "functionName": "checkQRCODE"
+      },
+      {
+        "menuName": "checkinManual",
+        "functionName": "checkinManual"
+      },
+      {
+        "menuName": "插入新資料",
+        "functionName": "myFunction"
+      },
+      {
+        "menuName": "未命名巨集",
+        "functionName": "myFunction1"
+      },
+      {
+        "menuName": "未命名巨集 1",
+        "functionName": "myFunction2"
+      }
+    ]
+  },
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+  }
+}

@@ -1,0 +1,193 @@
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.min.css">
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/spin.js/2.3.2/spin.min.js"></script>
+
+<script>
+  var resultsTable;
+  function createUnitSelect(units) {
+    
+    var select = document.getElementById("unitSelect");
+    var option = document.createElement("option");
+      option.value = "";
+      option.text = "所有單位";
+      select.appendChild(option);
+    for (var i = 0; i < units.length; i++) {
+      var option = document.createElement("option");
+      option.value = units[i];
+      option.text = units[i];
+      select.appendChild(option);
+    }
+  }
+  function createNameSelect() {
+    var unit = document.getElementById("unitSelect").value;
+    google.script.run.withSuccessHandler(createNameOption).getUniqueFirstName(unit);
+  }
+
+function createNameOption(names) {
+  var select = document.getElementById("nameSelect");
+  select.innerHTML = "";
+  for (var i = 0; i < names.length; i++) {
+    var option = document.createElement("option");
+    option.value = names[i];
+    option.text = names[i];
+    select.appendChild(option);
+  }
+}
+function createStatusSelect(status) {
+  var select = document.getElementById("statusSelect");
+  select.innerHTML = "";
+  for (var i = 0; i < names.length; i++) {
+    var option = document.createElement("option");
+    option.value = names[i];
+    option.text = names[i];
+    select.appendChild(option);
+  }
+}
+function searchData() {
+  showLoading();
+  var searchText = document.getElementById("searchText").value;
+  var unit = document.getElementById("unitSelect").value;
+  var status = document.getElementById("statusSelect").value;
+  if(resultsTable!=null)
+    resultsTable.destroy();
+  google.script.run.withSuccessHandler(displayResults)
+  .searchDataInSheet(searchText, unit, status);
+
+}
+  function displayResults(results) {
+    var spinner = document.getElementById("loadingSpinner");
+  spinner.style.display = "none";
+    resultsTable = $("#resultsTable").DataTable({
+      "language": {
+        "processing": "處理中...",
+        "loadingRecords": "載入中...",
+        "lengthMenu": "顯示 _MENU_ 項結果",
+        "zeroRecords": "沒有符合的結果",
+        "info": "顯示第 _START_ 至 _END_ 項結果，共 _TOTAL_ 項",
+        "infoEmpty": "顯示第 0 至 0 項結果，共 0 項",
+        "infoFiltered": "(從 _MAX_ 項結果中過濾)",
+        "infoPostFix": "",
+        "search": "搜尋:",
+        "paginate": {
+            "first": "第一頁",
+            "previous": "上一頁",
+            "next": "下一頁",
+            "last": "最後一頁"
+        },
+        "aria": {
+            "sortAscending": ": 升冪排列",
+            "sortDescending": ": 降冪排列"
+        }
+      },
+      "data": results,
+      "columns": [
+        { "data": "Code" ,
+          "render":  function(data, type, row) {
+          var name = row.Name;
+          var unit = row.Unit;
+          var qrcode = row.QRCode;
+          var urlLeaveForm = row.LeaveForm;
+          return '<input type="radio" name="rowdata" class="select-row" data-name="'+ name +'" data-unit="'+ unit +'" data-code="'+ data +'" data-qrcode="'+ qrcode +'" data-leave="'+ urlLeaveForm +'" >' + data;
+          }
+
+        },
+        { "data": "Name" },
+        { "data": "Unit" },
+        { "data": "Status"}
+      ]
+    });
+  }
+
+function onFailure(error) {
+  
+        var div = document.getElementById('results');
+        div.innerHTML = "ERROR: " + error.message;
+}
+function showLoading() {
+  var target = document.getElementById('loadingSpinner');
+  if(target.childElementCount>0){
+    target.style.display = "block";
+  }else{
+  var opts = {
+    lines: 13, // The number of lines to draw
+    length: 20, // The length of each line
+    width: 10, // The line thickness
+    radius: 30, // The radius of the inner circle
+    scale: 1, // Scales overall size of the spinner
+    corners: 1, // Corner roundness (0..1)
+    color: '#000', // CSS color or array of colors
+    fadeColor: 'transparent', // CSS color or array of colors
+    speed: 1, // Rounds per second
+    rotate: 0, // The rotation offset
+    animation: 'spinner-line-fade-default', // The CSS animation name for the lines
+    direction: 1, // 1: clockwise, -1: counterclockwise
+    zIndex: 2e9, // The z-index (defaults to 2000000000)
+    className: 'spinner', // The CSS class to assign to the spinner
+    top: '50%', // Top position relative to parent
+    left: '50%', // Left position relative to parent
+    shadow: '0 0 1px transparent', // Box-shadow for the lines
+    position: 'absolute' // Element positioning
+  };
+  
+  var spinner = new Spinner(opts).spin(target);
+  }
+}
+
+  google.script.run.withFailureHandler(onFailure).withSuccessHandler(createUnitSelect).getUniqueUnits();
+
+
+$(document).on("click", ".select-row", function() {
+    var name = $(this).data("name");
+    var unit = $(this).data("unit");
+    var code = $(this).data("code");
+    var qrcode = $(this).data("qrcode");
+    var urlLeaveForm = $(this).data("leave");
+    var rowString = name + " " + unit + " " + code;
+    rowString += " <a href='" + urlLeaveForm + "' target='_blank'>請假表單</a>"
+    rowString += "<br><image width=300 height=300 src='" + qrcode + "'>"
+    rowString += "<hr/>";
+    document.getElementById("data-display").innerHTML = rowString;
+    return;
+});
+</script>
+
+
+<form>
+  <label>查詢姓名:</label>
+  <input type="text" id="searchText">
+  <label>所屬單位:</label>
+  <select id="unitSelect">
+  </select>
+  <label>出席狀況:</label>
+  <select id="statusSelect">
+  </select>
+  <input type="button" value="查詢" onclick="searchData()">
+  <div id="loadingSpinner"></div>
+
+  <div id="loading" style="display:none;">
+  <svg width="50" height="50" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="45" fill="none" stroke="#f3f3f3" stroke-width="10" stroke-dasharray="62.83185307179586 62.83185307179586" transform="rotate(107.664 50 50)"/>
+    <circle cx="50" cy="50" r="45" fill="none" stroke="#00a2ff" stroke-width="10" stroke-dasharray="62.83185307179586 62.83185307179586" transform="rotate(107.664 50 50)"/>
+    <circle cx="50" cy="50" r="35" fill="#00a2ff"/>
+  </svg>
+</div>
+
+</form>
+<hr/>
+<div id="data-display"></div>
+<table id="resultsTable" class="display">
+  <thead>
+    <tr>
+      <th>編號</th>
+      <th>姓名</th>
+      <th>所屬單位</th>
+      <th>出席狀態</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+
+
