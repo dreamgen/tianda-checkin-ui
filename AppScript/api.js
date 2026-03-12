@@ -337,9 +337,33 @@ function apiGetAttendanceByDate(params) {
 // ────────────────────────────────────────────────────────────────────
 // 共用：寫入 人工簽到表 (A~E 欄)
 // ────────────────────────────────────────────────────────────────────
+
 /**
- * 將報到記錄直接 appendRow 到 人工簽到表（只寫 A~E 欄，F~I 由公式自動）
- * @param {Array} records - [{ id, name, verify, scheduleNote, notes }]
+ * 格式化班程註記欄（Col E）
+ * scheduleNote Col E 的格式為：出勤方式 + 班別代碼
+ * 例如：attendanceMode="實體"，classCode="1" → "實體1"
+ *       attendanceMode="線上"，classCode="3" → "線上3"
+ *
+ * 若傳入的 scheduleNote 已是完整格式（如 "實體1"），則直接使用。
+ * 若傳入的是純數字（如 "1"），則自動加上預設前綴 attendanceMode（預設 "實體"）。
+ *
+ * @param  {string} scheduleNote   - 班別代碼或完整格式
+ * @param  {string} attendanceMode - "實體"(預設) | "線上"
+ * @returns {string}  完整班程註記，如 "實體1"
+ */
+function formatScheduleNote(scheduleNote, attendanceMode) {
+  const note = String(scheduleNote || '').trim();
+  const mode = String(attendanceMode || '實體').trim();
+  // 若已含中文前綴（實體/線上）則直接使用，否則補上前綴
+  if (/^[\u4e00-\u9fa5]/.test(note)) return note;  // 已有中文開頭
+  if (!note) return '';
+  return mode + note;
+}
+/**
+ * 將報到記錄直接寫入 人工簽到表（只寫 A~E 欄，F~I 由公式自動）
+ * @param {Array} records - [{ id, name, verify, scheduleNote, attendanceMode }]
+ *   scheduleNote: 班別代碼（"1"）或完整格式（"實體1"）
+ *   attendanceMode: "實體"(預設) | "線上"
  */
 function writeToManualCheckin(records) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -348,11 +372,11 @@ function writeToManualCheckin(records) {
 
   const now = new Date();
   const rows = records.map(r => [
-    now,                          // A: 時間戳記
-    String(r.id || ''),           // B: ID
-    String(r.name || ''),         // C: NAME
-    String(r.verify || ''),       // D: 檢核密碼
-    String(r.scheduleNote || '')  // E: 班程註記
+    now,                                                                  // A: 時間戳記
+    String(r.id || ''),                                                   // B: ID
+    String(r.name || ''),                                                 // C: NAME
+    String(r.verify || ''),                                               // D: 檢核密碼
+    formatScheduleNote(r.scheduleNote, r.attendanceMode)                  // E: 班程註記（完整格式，如 "實體1"）
   ]);
 
   if (rows.length === 0) return;
@@ -377,22 +401,32 @@ function validateVerifyToken(verify) {
 // ────────────────────────────────────────────────────────────────────
 // API 4: checkin — QR 掃描 / 單筆即時報到
 // ────────────────────────────────────────────────────────────────────
+/**
+ * @param params.classCode      班別代碼，如 "1" 或 "3"
+ * @param params.attendanceMode 出勤方式，"實體"(預設) | "線上"
+ * @param params.scheduleNote   或直接傳完整格式 "實體1"（擇一使用）
+ */
 function apiCheckin(params) {
   try {
-    if (!params.id)           throw new Error('缺少必要參數: id');
-    if (!params.name)         throw new Error('缺少必要參數: name');
-    if (!params.verify)       throw new Error('缺少必要參數: verify');
-    if (!params.scheduleNote) throw new Error('缺少必要參數: scheduleNote');
+    if (!params.id)   throw new Error('缺少必要參數: id');
+    if (!params.name) throw new Error('缺少必要參數: name');
+    if (!params.verify) throw new Error('缺少必要參數: verify');
+    // classCode 或 scheduleNote 至少要有一個
+    if (!params.classCode && !params.scheduleNote) throw new Error('缺少必要參數: classCode 或 scheduleNote');
 
-    // 驗證密碼
     const validation = validateVerifyToken(params.verify);
     if (!validation.valid) return apiResponse(false, null, validation.error);
+
+    // 使用 classCode 優先，scheduleNote 作為備用（向下相容）
+    const rawNote = params.classCode || params.scheduleNote;
+    const mode    = params.attendanceMode || '實體';
 
     writeToManualCheckin([{
       id: params.id,
       name: params.name,
       verify: params.verify,
-      scheduleNote: params.scheduleNote,
+      scheduleNote: rawNote,
+      attendanceMode: mode,
       notes: params.notes || ''
     }]);
 
@@ -400,6 +434,7 @@ function apiCheckin(params) {
       message: `${params.name} 報到成功`,
       id: params.id,
       name: params.name,
+      scheduleNote: formatScheduleNote(rawNote, mode),
       checkinTime: Utilities.formatDate(new Date(), 'Asia/Taipei', 'HH:mm:ss'),
       warning: validation.warning || null
     }, null);
@@ -413,23 +448,30 @@ function apiCheckin(params) {
 // ────────────────────────────────────────────────────────────────────
 // API 5: checkinManualBatch — 簡易報到批次提交
 // ────────────────────────────────────────────────────────────────────
+/**
+ * @param params.attendanceMode 整批共用的出勤方式，"實體"(預設) | "線上"
+ * @param params.records[].classCode  個別班別代碼，如 "1"
+ * @param params.records[].scheduleNote 或完整格式 "實體1"（擇一）
+ */
 function apiCheckinManualBatch(params) {
   try {
-    if (!params.verify)  throw new Error('缺少必要參數: verify');
+    if (!params.verify) throw new Error('缺少必要參數: verify');
     if (!params.records || !Array.isArray(params.records) || params.records.length === 0) {
       throw new Error('缺少必要參數: records (需為非空陣列)');
     }
 
-    // 驗證密碼
     const validation = validateVerifyToken(params.verify);
     if (!validation.valid) return apiResponse(false, null, validation.error);
 
-    // 強制套用共用 verify 到每筆記錄
+    const globalMode = params.attendanceMode || '實體';
+
+    // 組建每筆記錄（強制套用共用 verify）
     const records = params.records.map(r => ({
       id: r.id,
       name: r.name,
       verify: params.verify,
-      scheduleNote: r.scheduleNote || '',
+      scheduleNote: r.classCode || r.scheduleNote || '',  // classCode 優先
+      attendanceMode: r.attendanceMode || globalMode,
       notes: r.notes || ''
     }));
 
@@ -452,16 +494,24 @@ function apiCheckinManualBatch(params) {
 // ────────────────────────────────────────────────────────────────────
 // API 6: checkinTemp — 臨時報到（非在冊人員）
 // ────────────────────────────────────────────────────────────────────
+/**
+ * @param params.classCode      班別代碼，如 "1"
+ * @param params.attendanceMode 出勤方式，"實體"(預設) | "線上"
+ * @param params.scheduleNote   或直接傳完整格式 "實體1"（擇一使用）
+ */
 function apiCheckinTemp(params) {
   try {
-    if (!params.name)         throw new Error('缺少必要參數: name');
-    if (!params.verify)       throw new Error('缺少必要參數: verify');
-    if (!params.scheduleNote) throw new Error('缺少必要參數: scheduleNote');
+    if (!params.name)   throw new Error('缺少必要參數: name');
+    if (!params.verify) throw new Error('缺少必要參數: verify');
+    if (!params.classCode && !params.scheduleNote) throw new Error('缺少必要參數: classCode 或 scheduleNote');
 
     const validation = validateVerifyToken(params.verify);
     if (!validation.valid) return apiResponse(false, null, validation.error);
 
-    // 臨時 ID: TEMP-{YYYYMMDD}-{ms後4位}
+    const rawNote = params.classCode || params.scheduleNote;
+    const mode    = params.attendanceMode || '實體';
+    const fullNote = formatScheduleNote(rawNote, mode);  // → "實體1"
+
     const now = new Date();
     const tempId = 'TEMP-' + Utilities.formatDate(now, 'Asia/Taipei', 'yyyyMMdd') +
                    '-' + String(now.getTime()).slice(-4);
@@ -474,7 +524,8 @@ function apiCheckinTemp(params) {
       id: tempId,
       name: nameWithRelation,
       verify: params.verify,
-      scheduleNote: params.scheduleNote,
+      scheduleNote: rawNote,       // 傳入原始值，writeToManualCheckin 內部格式化
+      attendanceMode: mode,
       notes: params.notes || '臨時報到'
     }]);
 
@@ -482,6 +533,7 @@ function apiCheckinTemp(params) {
       message: `臨時報到成功: ${params.name}`,
       tempId: tempId,
       name: params.name,
+      scheduleNote: fullNote,
       checkinTime: Utilities.formatDate(now, 'Asia/Taipei', 'HH:mm:ss'),
       warning: validation.warning || null
     }, null);
