@@ -921,10 +921,122 @@ function routeApiRequest(params) {
 
 function testGetMembers() {
   const result = apiGetMembers({ unit: '基隆區', status: 'active' });
-  Logger.log('testGetMembers → success: ' + result.success + ' | count: ' + (result.data ? result.data.length : 0));
-  if (result.data && result.data.length > 0) Logger.log('第一筆: ' + JSON.stringify(result.data[0]));
+  const members = result.data ? result.data.members : [];
+  Logger.log('testGetMembers → success: ' + result.success + ' | total: ' + (result.data ? result.data.total : 0));
+  if (members && members.length > 0) Logger.log('第一筆: ' + JSON.stringify(members[0]));
   if (!result.success) Logger.log('錯誤: ' + result.error);
 }
+
+function testGetMemberById() {
+  const result = apiGetMemberById({ id: 'H111310001' });
+  Logger.log('testGetMemberById → ' + JSON.stringify(result));
+}
+
+function testGetAttendanceByDate() {
+  // 請先確認此日期與班別代碼在出席總表中存在
+  const result = apiGetAttendanceByDate({ date: '2026/3/1', scheduleNote: '1' });
+  Logger.log('testGetAttendanceByDate → success: ' + result.success);
+  if (result.success) {
+    Logger.log('summary: ' + JSON.stringify(result.data.summary));
+    Logger.log('scheduleInfo: ' + JSON.stringify(result.data.scheduleInfo));
+    Logger.log('前3筆: ' + JSON.stringify(result.data.records.slice(0, 3)));
+  } else {
+    Logger.log('錯誤: ' + result.error);
+  }
+}
+
+function testCheckin() {
+  const checkPassToday = getNamedRangeValue('CheckPassToday');
+  Logger.log('CheckPassToday = ' + checkPassToday);
+  const result = apiCheckin({
+    id: 'H111310001',
+    name: '丁國恒',
+    verify: checkPassToday || 'TEST',
+    classCode: '1',
+    attendanceMode: '實體',
+    notes: '測試報到'
+  });
+  Logger.log('testCheckin → ' + JSON.stringify(result));
+}
+
+function testCheckinManualBatch() {
+  const checkPassToday = getNamedRangeValue('CheckPassToday');
+  const result = apiCheckinManualBatch({
+    verify: checkPassToday || 'TEST',
+    attendanceMode: '實體',
+    records: [
+      { id: 'H111310001', name: '丁國恒', classCode: '1', notes: '' },
+      { id: 'H111310002', name: '丁耀盛', classCode: '1', notes: '' }
+    ]
+  });
+  Logger.log('testCheckinManualBatch → ' + JSON.stringify(result));
+}
+
+function testCheckinTemp() {
+  const checkPassToday = getNamedRangeValue('CheckPassToday');
+  const result = apiCheckinTemp({
+    name: '測試臨時人員',
+    verify: checkPassToday || 'TEST',
+    classCode: '1',
+    attendanceMode: '實體',
+    notes: '親屬陪同',
+    relatedId: 'H111310001'
+  });
+  Logger.log('testCheckinTemp → ' + JSON.stringify(result));
+}
+
+function testGetSchedules() {
+  const result = apiGetSchedules({ filter: 'future' });
+  Logger.log('testGetSchedules → success: ' + result.success + ' | count: ' + (result.data ? result.data.length : 0));
+  if (result.data && result.data.length > 0) Logger.log('前3筆: ' + JSON.stringify(result.data.slice(0, 3)));
+}
+
+function testGetActiveSchedule() {
+  const result = apiGetActiveSchedule({});
+  Logger.log('testGetActiveSchedule → ' + JSON.stringify(result));
+}
+
+function testGetAttendanceStats() {
+  const result = apiGetAttendanceStats({ date: '2026/3/1', scheduleNote: '1' });
+  Logger.log('testGetAttendanceStats → success: ' + result.success);
+  if (result.success) {
+    Logger.log('stats: ' + JSON.stringify({
+      total: result.data.total,
+      present: result.data.present,
+      absent: result.data.absent,
+      leave: result.data.leave,
+      male: result.data.male,
+      female: result.data.female
+    }));
+    Logger.log('byUnit前5: ' + JSON.stringify(result.data.byUnit.slice(0, 5)));
+  } else {
+    Logger.log('錯誤: ' + result.error);
+  }
+}
+
+function testGetUnits() {
+  const result = apiGetUnits({});
+  Logger.log('testGetUnits → ' + JSON.stringify(result));
+}
+
+function testGetMemberAttendanceHistory() {
+  const result = apiGetMemberAttendanceHistory({ id: 'H111310001', limit: 10 });
+  Logger.log('testGetMemberAttendanceHistory → success: ' + result.success);
+  if (result.success) Logger.log(JSON.stringify(result.data));
+  else Logger.log('錯誤: ' + result.error);
+}
+
+function testSearchMembers() {
+  const result = apiSearchMembers({
+    date: '2026/3/1',
+    scheduleNote: '1',
+    unit: '基隆區',
+    statusFilter: ['present', 'late']
+  });
+  Logger.log('testSearchMembers → success: ' + result.success + ' | total: ' + (result.data ? result.data.total : 0));
+  if (result.data && result.data.records) Logger.log('前3筆: ' + JSON.stringify(result.data.records.slice(0, 3)));
+}
+
 
 function testGetMemberById() {
   const result = apiGetMemberById({ id: 'H111310001' });
