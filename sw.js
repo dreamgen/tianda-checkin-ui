@@ -3,25 +3,26 @@
  * Cache Strategy: Cache-first for static assets, network-only for API
  */
 
-const CACHE_NAME = 'tianda-checkin-v1';
+const CACHE_NAME = 'tianda-checkin-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap',
+  './',
+  './index.html',
+  './manifest.json',
+  './js/api.js',
+  './js/state.js',
+  './js/router.js',
+  './js/app.js',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
 ];
 
-// API URL - never cache this
-const API_URL = 'https://script.google.com/macros/s/';
+// API URL - never cache
+const API_DOMAINS = ['script.google.com', 'api.qrserver.com'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS.filter(url => !url.startsWith('https://cdn.tailwindcss.com')));
-    }).catch(() => {
-      // Swallow errors from CDN caching
+      return Promise.allSettled(STATIC_ASSETS.map(url => cache.add(url)));
     })
   );
   self.skipWaiting();
@@ -41,14 +42,22 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
-  // Never cache AppScript API calls
-  if (url.includes(API_URL) || url.includes('script.google.com')) {
-    event.respondWith(fetch(event.request));
+  // Never cache API calls
+  if (API_DOMAINS.some(d => url.includes(d))) {
+    event.respondWith(fetch(event.request).catch(() => new Response('{"success":false,"error":"offline"}', {
+      headers: { 'Content-Type': 'application/json' }
+    })));
     return;
   }
 
-  // For CDN resources - stale-while-revalidate
-  if (url.includes('cdnjs.cloudflare.com') || url.includes('fonts.googleapis.com') || url.includes('tailwindcss.com')) {
+  // CDN resources (Tailwind, FontAwesome, Google Fonts) - stale-while-revalidate
+  if (
+    url.includes('cdnjs.cloudflare.com') ||
+    url.includes('fonts.googleapis.com') ||
+    url.includes('fonts.gstatic.com') ||
+    url.includes('tailwindcss.com') ||
+    url.includes('unpkg.com')
+  ) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(event.request);
@@ -62,10 +71,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For app HTML/assets - cache first, fallback to network
+  // App HTML/JS/assets - cache first, fallback to network
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
         if (response.ok && event.request.method === 'GET') {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
         }
