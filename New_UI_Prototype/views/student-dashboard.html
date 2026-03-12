@@ -1,0 +1,106 @@
+<!-- views/student-dashboard.html -->
+<div class="space-y-6 pb-6">
+    
+    <!-- Welcome Header -->
+    <div class="px-2">
+        <h2 class="text-2xl font-bold text-gray-800">早安，簡嘉伸</h2>
+        <p class="text-[var(--color-subtext)] mt-1">天達大班 - 2026/3/15 第三週日 (實體)</p>
+    </div>
+
+    <!-- Digital ID Card -->
+    <div class="card bg-gradient-to-br from-primary to-primary-dark text-white p-6 relative overflow-hidden shadow-lg border-0 transform transition-transform hover:scale-[1.01]">
+        <!-- Decorative bg circle -->
+        <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
+        <div class="absolute -left-12 -bottom-12 w-40 h-40 rounded-full bg-white opacity-5"></div>
+        
+        <div class="relative z-10 flex flex-col md:flex-row gap-6 items-center md:items-start justify-between">
+            
+            <!-- User Info -->
+            <div class="flex items-center gap-5 w-full">
+                <!-- Avatar -->
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/20 border-2 border-white/50 flex items-center justify-center overflow-hidden flex-shrink-0 backdrop-blur-sm shadow-inner">
+                    <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Profile" class="w-full h-full object-cover">
+                </div>
+                
+                <!-- Details -->
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-xl md:text-2xl font-bold tracking-wide">簡嘉伸</h3>
+                        <span class="bg-white/20 px-2 py-0.5 rounded text-xs font-medium backdrop-blur-md self-start border border-white/10">乾</span>
+                    </div>
+                    <p class="text-primary-light font-mono text-sm mb-2 opacity-90 tracking-wider">H311310080</p>
+                    <p class="text-sm opacity-90 flex items-center gap-2"><i class="fa-solid fa-users text-xs opacity-70"></i>明理班</p>
+                </div>
+            </div>
+
+            <!-- Status & QR Code Box -->
+            <div class="bg-white rounded-xl p-3 shadow-md flex flex-col items-center justify-center w-36 flex-shrink-0 border border-gray-100 mt-2 md:mt-0">
+                <!-- Status Badge (Overlapping top) -->
+                <div class="absolute -mt-6 transform -translate-y-1/2 bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-xs shadow-sm border border-green-200 flex items-center gap-1.5 whitespace-nowrap z-20">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    已報到 08:45
+                </div>
+
+                <!-- Fake QR Code Image -->
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=H311310080" alt="QR Code" class="w-24 h-24 mb-1">
+                <span class="text-gray-400 text-[10px] font-medium tracking-widest uppercase">Scan Me</span>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-2 gap-4">
+        <!-- Leave Button -->
+        <button class="card p-4 flex flex-col items-center justify-center gap-3 hover:bg-gray-50 transition-colors active:bg-gray-100 border-gray-200 group">
+            <div class="w-12 h-12 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-calendar-xmark"></i>
+            </div>
+            <div class="text-center">
+                <h4 class="font-bold tracking-wide text-gray-800">請假</h4>
+                <p class="text-xs text-gray-500 mt-0.5">線上提出申請</p>
+            </div>
+        </button>
+
+        <!-- Profile Button -->
+        <button class="card p-4 flex flex-col items-center justify-center gap-3 hover:bg-gray-50 transition-colors active:bg-gray-100 border-gray-200 group">
+            <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-user-pen"></i>
+            </div>
+            <div class="text-center">
+                <h4 class="font-bold tracking-wide text-gray-800">個人資訊</h4>
+                <p class="text-xs text-gray-500 mt-0.5">檢視與修改</p>
+            </div>
+        </button>
+    </div>
+
+    <!-- Recent Activity / Info -->
+    <div class="card p-5 border-gray-200">
+        <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-bullhorn text-primary"></i> 最新消息
+        </h3>
+        <ul class="space-y-4">
+            <li class="flex gap-4 items-start pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                <div class="w-10 h-10 rounded bg-indigo-50 flex items-center justify-center text-indigo-500 flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-comment-dots"></i>
+                </div>
+                <div>
+                    <h4 class="font-medium text-sm text-gray-800">下週日(3/22) 將舉辦戶外教學</h4>
+                    <p class="text-xs text-gray-500 mt-1 line-clamp-2">請各位班員注意，下週日的課程將改為戶外教學，集合地點將於近期公佈於平台，請密切注意。</p>
+                    <span class="text-[10px] text-gray-400 block mt-2">2 小時前</span>
+                </div>
+            </li>
+            <li class="flex gap-4 items-start pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                <div class="w-10 h-10 rounded bg-green-50 flex items-center justify-center text-green-500 flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div>
+                    <h4 class="font-medium text-sm text-gray-800">您的報到已成功</h4>
+                    <p class="text-xs text-gray-500 mt-1 line-clamp-2">您在 08:45 的手動報到紀錄已經成功推送到系統。</p>
+                    <span class="text-[10px] text-gray-400 block mt-2">今日 08:45</span>
+                </div>
+            </li>
+        </ul>
+    </div>
+
+</div>

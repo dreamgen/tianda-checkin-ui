@@ -1,0 +1,178 @@
+<!-- views/attendance-stats.html -->
+<div class="space-y-6 pb-8 max-w-5xl mx-auto">
+    
+    <!-- Top Filters -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <h2 class="text-xl font-bold text-gray-800 hidden md:block">出席統計</h2>
+        <div class="flex gap-3 w-full sm:w-auto">
+            <select class="flex-1 sm:w-40 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2">
+                <option>2026/3/1</option>
+            </select>
+            <select class="flex-1 sm:w-40 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2">
+                <option>第一週日</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card p-5 border-l-4 border-l-primary relative overflow-hidden">
+            <i class="fa-solid fa-clipboard-user absolute right-4 top-4 text-gray-100 text-4xl transform rotate-12"></i>
+            <p class="text-sm font-medium text-gray-500 mb-1">總出席</p>
+            <h3 class="text-3xl font-bold text-gray-900 flex items-baseline gap-2">
+                187 <span class="text-sm font-normal text-gray-500">/ 250</span>
+            </h3>
+            <p class="text-xs text-success font-medium mt-2 flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up"></i> 74.8% 出席率</p>
+        </div>
+        
+        <div class="card p-5 border-l-4 border-l-blue-500 relative overflow-hidden">
+            <p class="text-sm font-medium text-gray-500 mb-1">乾 (男性)</p>
+            <h3 class="text-3xl font-bold text-gray-900">89</h3>
+            <p class="text-xs text-gray-500 mt-2">佔比 47.5%</p>
+        </div>
+        
+        <div class="card p-5 border-l-4 border-l-pink-500 relative overflow-hidden">
+            <p class="text-sm font-medium text-gray-500 mb-1">坤 (女性)</p>
+            <h3 class="text-3xl font-bold text-gray-900">98</h3>
+            <p class="text-xs text-gray-500 mt-2">佔比 52.5%</p>
+        </div>
+
+        <div class="card p-5 border-l-4 border-l-warning relative overflow-hidden">
+            <i class="fa-solid fa-user-plus absolute right-4 top-4 text-warning/10 text-4xl"></i>
+            <p class="text-sm font-medium text-gray-500 mb-1">臨時報到</p>
+            <h3 class="text-3xl font-bold text-gray-900">12</h3>
+            <p class="text-xs text-gray-500 mt-2 flex items-center gap-1">需後續補建檔</p>
+        </div>
+    </div>
+
+    <!-- Details Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Table Data -->
+        <div class="lg:col-span-1 card overflow-hidden">
+            <div class="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                <h3 class="font-bold text-gray-800">各區明細表</h3>
+                <label class="flex items-center cursor-pointer">
+                    <span class="mr-2 text-xs font-medium text-gray-600">比較上月</span>
+                    <div class="relative">
+                        <input type="checkbox" class="sr-only">
+                        <div class="block bg-gray-300 w-8 h-4 rounded-full"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition"></div>
+                    </div>
+                </label>
+            </div>
+            
+            <div class="divide-y divide-gray-100">
+                <div class="flex items-center justify-between p-3 px-4 hover:bg-gray-50 transition-colors">
+                    <span class="text-sm font-medium text-gray-700">基隆區</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-success text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-caret-up"></i> 5%</span>
+                        <span class="font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded text-sm">45 人</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-3 px-4 hover:bg-gray-50 transition-colors">
+                    <span class="text-sm font-medium text-gray-700">瑞芳區</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-danger text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-caret-down"></i> 2%</span>
+                        <span class="font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded text-sm">38 人</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-3 px-4 hover:bg-gray-50 transition-colors">
+                    <span class="text-sm font-medium text-gray-700">內湖區</span>
+                    <span class="font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded text-sm">30 人</span>
+                </div>
+                <div class="flex items-center justify-between p-3 px-4 hover:bg-gray-50 transition-colors">
+                    <span class="text-sm font-medium text-gray-700">松山區</span>
+                    <span class="font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded text-sm">28 人</span>
+                </div>
+                <div class="flex items-center justify-between p-3 px-4 hover:bg-gray-50 transition-colors">
+                    <span class="text-sm font-medium text-gray-700">新莊區</span>
+                    <span class="font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded text-sm">26 人</span>
+                </div>
+                <div class="flex items-center justify-between p-3 px-4 hover:bg-gray-50 transition-colors">
+                    <span class="text-sm font-medium text-gray-700">三重區</span>
+                    <span class="font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded text-sm">20 人</span>
+                </div>
+            </div>
+            
+            <div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
+                <button class="text-xs text-primary font-medium hover:underline">檢視依「班級」分組</button>
+            </div>
+        </div>
+
+        <!-- Chart Area (Mockup using HTML/CSS for proto, normally Chart.js) -->
+        <div class="lg:col-span-2 card p-5 flex flex-col">
+            <h3 class="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-chart-column text-primary"></i> 區域出席長條圖
+            </h3>
+            
+            <div class="flex-1 flex items-end justify-between gap-2 md:gap-4 pb-8 border-b border-gray-200 mt-auto min-h-[250px] relative px-2">
+                
+                <!-- Y Axis Labels -->
+                <div class="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-[10px] text-gray-400 font-mono w-6 text-right pr-2">
+                    <span>50</span>
+                    <span>40</span>
+                    <span>30</span>
+                    <span>20</span>
+                    <span>10</span>
+                    <span>0</span>
+                </div>
+                
+                <!-- Chart Grid Lines -->
+                <div class="absolute left-6 right-0 top-0 bottom-8 flex flex-col justify-between pointer-events-none">
+                    <div class="w-full border-t border-gray-100 border-dashed h-0"></div>
+                    <div class="w-full border-t border-gray-100 border-dashed h-0"></div>
+                    <div class="w-full border-t border-gray-100 border-dashed h-0"></div>
+                    <div class="w-full border-t border-gray-100 border-dashed h-0"></div>
+                    <div class="w-full border-t border-gray-100 border-dashed h-0"></div>
+                    <div class="w-full border-t border-gray-100 h-0"></div>
+                </div>
+
+                <!-- Bars (flex-1 for even spacing) -->
+                <div class="flex-1 max-w-[50px] h-full flex items-end justify-center group relative z-10 pl-6">
+                    <div class="w-full md:w-8 bg-primary rounded-t-sm h-[90%] shadow-sm transition-all group-hover:bg-primary-dark cursor-pointer relative">
+                        <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded pointer-events-none transition-opacity whitespace-nowrap">45 人</div>
+                    </div>
+                    <span class="absolute -bottom-6 text-[10px] md:text-sm text-gray-600 font-medium whitespace-nowrap">基隆</span>
+                </div>
+                
+                <div class="flex-1 max-w-[50px] h-full flex items-end justify-center group relative z-10">
+                    <div class="w-full md:w-8 bg-primary/80 rounded-t-sm h-[76%] shadow-sm transition-all group-hover:bg-primary-dark cursor-pointer relative">
+                        <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded pointer-events-none transition-opacity whitespace-nowrap">38 人</div>
+                    </div>
+                    <span class="absolute -bottom-6 text-[10px] md:text-sm text-gray-600 font-medium whitespace-nowrap">瑞芳</span>
+                </div>
+
+                <div class="flex-1 max-w-[50px] h-full flex items-end justify-center group relative z-10">
+                    <div class="w-full md:w-8 bg-primary/60 rounded-t-sm h-[60%] shadow-sm transition-all group-hover:bg-primary-dark cursor-pointer relative">
+                        <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded pointer-events-none transition-opacity whitespace-nowrap">30 人</div>
+                    </div>
+                    <span class="absolute -bottom-6 text-[10px] md:text-sm text-gray-600 font-medium whitespace-nowrap">內湖</span>
+                </div>
+
+                <div class="flex-1 max-w-[50px] h-full flex items-end justify-center group relative z-10">
+                    <div class="w-full md:w-8 bg-primary/50 rounded-t-sm h-[56%] shadow-sm transition-all group-hover:bg-primary-dark cursor-pointer relative">
+                         <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded pointer-events-none transition-opacity whitespace-nowrap">28 人</div>
+                    </div>
+                    <span class="absolute -bottom-6 text-[10px] md:text-sm text-gray-600 font-medium whitespace-nowrap">松山</span>
+                </div>
+
+                <div class="flex-1 max-w-[50px] h-full flex items-end justify-center group relative z-10">
+                    <div class="w-full md:w-8 bg-primary/40 rounded-t-sm h-[52%] shadow-sm transition-all group-hover:bg-primary-dark cursor-pointer relative">
+                         <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded pointer-events-none transition-opacity whitespace-nowrap">26 人</div>
+                    </div>
+                    <span class="absolute -bottom-6 text-[10px] md:text-sm text-gray-600 font-medium whitespace-nowrap">新莊</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    
+    <!-- Floating Action Button for Export (Desktop only in UI flow usually, fixed bottom right) -->
+    <button class="fixed bottom-[80px] md:bottom-8 right-4 md:right-8 bg-gray-800 text-white w-12 h-12 md:w-14 md:h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-black transition-transform hover:scale-105 z-30 group">
+        <i class="fa-solid fa-download text-lg"></i>
+        <!-- Tooltip -->
+        <span class="absolute right-full mr-3 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-gray-700 shadow-md">匯出 Excel</span>
+    </button>
+
+</div>

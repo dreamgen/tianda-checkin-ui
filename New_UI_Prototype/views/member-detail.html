@@ -1,0 +1,196 @@
+<!-- views/member-detail.html -->
+<div class="pb-8 max-w-3xl mx-auto">
+    
+    <!-- Top Action Bar -->
+    <div class="flex items-center justify-between mb-4 px-2">
+        <button onclick="document.querySelector('[data-view=\'member-list\']').click()" class="text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-2 font-medium">
+            <i class="fa-solid fa-arrow-left"></i> 返回名單
+        </button>
+        <button class="bg-white border border-gray-200 hover:bg-gray-50 px-3 py-1.5 text-sm rounded-lg text-gray-700 shadow-sm transition-colors flex items-center gap-2 font-medium">
+            <i class="fa-solid fa-pen"></i> 編輯
+        </button>
+    </div>
+
+    <div class="card overflow-hidden">
+        <!-- Profile Header (bg banner) -->
+        <div class="h-32 bg-gradient-to-r from-primary to-primary-light relative">
+            <!-- decorative overlay -->
+            <div class="absolute inset-0 bg-white/10" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 20px 20px;"></div>
+        </div>
+        
+        <!-- Profile Info Area -->
+        <div class="px-6 pb-6 relative z-10 pt-0 flex flex-col items-center sm:items-start sm:flex-row sm:justify-between sm:gap-6">
+            
+            <!-- Avatar -->
+            <div class="-mt-16 mb-4 sm:mb-0 relative group">
+                <div class="w-28 h-28 rounded-full border-4 border-white bg-white shadow-md overflow-hidden bg-gray-100 flex items-center justify-center text-4xl text-gray-400 font-bold">
+                    <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Profile" class="w-full h-full object-cover">
+                </div>
+                <!-- Edit photo overlay on hover -->
+                <button class="absolute bottom-0 right-0 bg-primary text-white w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center hover:bg-primary-dark transition-colors">
+                    <i class="fa-solid fa-camera text-xs"></i>
+                </button>
+            </div>
+            
+            <!-- Text Details -->
+            <div class="text-center sm:text-left flex-1 mt-2">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center justify-center sm:justify-start gap-2">
+                        簡嘉伸 <span class="badge badge-neutral text-xs h-5 py-0">乾</span>
+                    </h2>
+                    
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-success/10 text-success rounded-full text-sm font-medium border border-success/20 self-center sm:self-auto">
+                        <div class="w-2 h-2 rounded-full bg-success"></div>
+                        報到率: 92%
+                    </div>
+                </div>
+                
+                <p class="text-sm font-mono text-gray-500 mt-1 mb-3">H311310080</p>
+                
+                <div class="flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2 text-sm text-gray-700">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-location-dot text-gray-400 w-4 text-center"></i>
+                        <span>瑞芳區</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-users text-gray-400 w-4 text-center"></i>
+                        <span>明理班</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-phone text-gray-400 w-4 text-center"></i>
+                        <span>0912-345-678</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Tabs -->
+        <div class="border-t border-gray-100 px-2 mt-2">
+            <nav class="flex overflow-x-auto no-scrollbar" aria-label="Tabs">
+                <!-- Current: "border-primary text-primary", Default: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" -->
+                <button class="w-1/2 border-b-2 py-4 px-1 text-center text-sm font-medium border-primary text-primary transition-colors focus:outline-none">
+                    基本資料
+                </button>
+                <button class="w-1/2 border-b-2 border-transparent py-4 px-1 text-center text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors focus:outline-none">
+                    出席歷程
+                </button>
+            </nav>
+        </div>
+    </div>
+    
+    <!-- Tab Content: Basic Info (Visible) -->
+    <div class="mt-6 card p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">個人檔案</h3>
+        
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2">
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">姓名</dt>
+                <dd class="mt-1 text-sm text-gray-900">簡嘉伸</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">性別 / 身分</dt>
+                <dd class="mt-1 text-sm text-gray-900">乾</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">身分證字號</dt>
+                <dd class="mt-1 text-sm text-gray-900">A123****89</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">出生日期</dt>
+                <dd class="mt-1 text-sm text-gray-900">1990/05/12</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">聯絡信箱</dt>
+                <dd class="mt-1 text-sm text-gray-900">h.dreamgen@1-kuan-tao.org.tw</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">緊急聯絡人</dt>
+                <dd class="mt-1 text-sm text-gray-900">簡媽媽 (0987-654-321)</dd>
+            </div>
+            <div class="sm:col-span-2">
+                <dt class="text-sm font-medium text-gray-500">備註</dt>
+                <dd class="mt-1 text-sm text-gray-900">無特殊過敏史</dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- Tab Content: Timeline Mockup (Should be toggled via JS, shown here for visual context, normally would be hidden class="hidden") -->
+    <div class="mt-6 card p-6 hidden">
+        <h3 class="text-lg font-bold text-gray-800 mb-6 border-b border-gray-100 pb-2">出缺席紀錄 (2026年度)</h3>
+        
+        <div class="relative border-l-2 border-gray-200 ml-4 space-y-8 pb-4">
+            
+            <!-- Item 1: Present -->
+            <div class="relative pl-6">
+                <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-success border-2 border-white shadow-sm"></div>
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+                        <h4 class="text-sm font-bold text-gray-800">第三週日 (實體)</h4>
+                        <span class="text-xs text-gray-500 font-mono">2026/03/15</span>
+                    </div>
+                    <p class="text-sm text-gray-600">狀態：<span class="text-success font-medium">出席</span> <span class="text-xs text-gray-400 ml-2">報到時間: 08:45</span></p>
+                </div>
+            </div>
+
+            <!-- Item 2: Present (Online) -->
+            <div class="relative pl-6">
+                <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm"></div>
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+                        <h4 class="text-sm font-bold text-gray-800">第一週日 (線上)</h4>
+                        <span class="text-xs text-gray-500 font-mono">2026/03/01</span>
+                    </div>
+                    <p class="text-sm text-gray-600">狀態：<span class="text-blue-600 font-medium">線上出席</span></p>
+                </div>
+            </div>
+
+            <!-- Item 3: Absent -->
+            <div class="relative pl-6">
+                <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-danger border-2 border-white shadow-sm"></div>
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+                        <h4 class="text-sm font-bold text-gray-800">戶外觀摩</h4>
+                        <span class="text-xs text-gray-500 font-mono">2026/02/15</span>
+                    </div>
+                    <p class="text-sm text-gray-600">狀態：<span class="text-danger font-medium">缺席</span></p>
+                </div>
+            </div>
+            
+            <!-- Item 4: Leave -->
+            <div class="relative pl-6">
+                <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-gray-400 border-2 border-white shadow-sm"></div>
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+                        <h4 class="text-sm font-bold text-gray-800">第一週日 (實體)</h4>
+                        <span class="text-xs text-gray-500 font-mono">2026/02/01</span>
+                    </div>
+                    <p class="text-sm text-gray-600">狀態：<span class="text-gray-500 font-medium">請假</span> <span class="text-xs text-gray-400 ml-2">事由：家中有事</span></p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // Simple tab switching logic for prototype
+    const tabs = document.querySelectorAll('nav[aria-label="Tabs"] button');
+    const tabContents = document.querySelectorAll('.card.p-6'); // getting the two content blocks
+    
+    tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => {
+            // reset styles
+            tabs.forEach(t => {
+                t.classList.remove('border-primary', 'text-primary');
+                t.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            });
+            // hide all contents
+            tabContents.forEach(c => c.classList.add('hidden'));
+            
+            // activate clicked
+            tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            tab.classList.add('border-primary', 'text-primary');
+            tabContents[index].classList.remove('hidden');
+        });
+    });
+</script>

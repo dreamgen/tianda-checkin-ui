@@ -1,0 +1,115 @@
+<!-- views/class-schedule.html -->
+<div class="space-y-6 pb-6 max-w-4xl mx-auto">
+    
+    <!-- Top Controls -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 items-center justify-between sticky top-0 md:static z-10">
+        <h2 class="text-xl font-bold text-gray-800 hidden md:block">班程資料</h2>
+        
+        <div class="flex items-center gap-3 w-full sm:w-auto bg-gray-100 p-1 rounded-lg">
+            <button class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors focus:outline-none bg-white text-gray-900 shadow-sm border border-gray-200">
+                <i class="fa-solid fa-list-ul mr-1 text-gray-400"></i> 列表檢視
+            </button>
+            <button class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors focus:outline-none">
+                <i class="fa-regular fa-calendar mr-1"></i> 月曆檢視
+            </button>
+        </div>
+    </div>
+
+    <!-- Month Navigation -->
+    <div class="flex items-center justify-between px-2">
+        <button class="w-10 h-10 rounded-full hover:bg-white text-gray-600 flex items-center justify-center transition-colors">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <h3 class="font-bold text-lg text-gray-800">2026年 3月</h3>
+        <button class="w-10 h-10 rounded-full hover:bg-white text-gray-600 flex items-center justify-center transition-colors">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <!-- Schedule List -->
+    <div class="space-y-4 relative before:absolute before:top-4 before:bottom-8 before:left-[1.35rem] md:before:left-1/2 md:before:-ml-px before:w-0.5 before:bg-gray-200">
+        
+        <!-- Past Event -->
+        <div class="relative flex md:justify-end items-center md:items-start group">
+            <div class="hidden md:block w-1/2 pr-10 text-right">
+                <div class="text-sm font-bold text-gray-400">已結束</div>
+                <div class="text-xs text-gray-400 mt-1">出席率: 82%</div>
+            </div>
+            
+            <div class="absolute left-3 md:left-1/2 w-4 h-4 rounded-full bg-gray-300 border-4 border-[#F5F7FA] transform -translate-x-1/2 mt-1"></div>
+            
+            <div class="pl-10 md:pl-0 md:w-1/2 md:pl-10 w-full">
+                <div class="card p-4 opacity-75 hover:opacity-100 transition-opacity">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">3/1 (日)</span>
+                            <h4 class="font-bold text-gray-700">第一週日 (正課)</h4>
+                        </div>
+                        <span class="badge badge-neutral text-xs py-0 h-5">已封存</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current/Upcoming Event -->
+        <div class="relative flex md:justify-start items-center md:items-start group">
+            <div class="pl-10 md:pl-0 md:w-1/2 md:pr-10 w-full text-left md:text-right">
+                <div class="card p-4 border-l-4 border-l-primary shadow-md transform md:-translate-y-2 relative">
+                    <div class="absolute -right-3 top-4 hidden md:block w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-[12px] border-l-white"></div>
+                    
+                    <div class="flex items-start justify-between md:justify-end gap-4 mb-3">
+                        <span class="badge badge-success bg-primary/10 text-primary border-primary/20 text-xs py-0 h-5 md:hidden">即將到來</span>
+                        <div class="md:text-right">
+                            <span class="text-xs font-bold text-primary uppercase tracking-wider block mb-1">3/15 (日)</span>
+                            <h4 class="font-bold text-gray-900 text-lg">第三週日 (實體)</h4>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 flex flex-col md:items-end gap-2 mb-4">
+                        <p class="text-xs text-gray-500 font-medium">報到狀態：<span class="text-warning">尚未開放</span></p>
+                        <p class="text-xs text-gray-500 font-medium">預定負責人：李班長</p>
+                    </div>
+
+                    <button class="w-full btn-primary px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i> 設為當次報到場次
+                    </button>
+                </div>
+            </div>
+            
+            <div class="absolute left-3 md:left-1/2 w-5 h-5 rounded-full bg-primary border-4 border-primary-light transform -translate-x-1/2 mt-1 z-10 animate-pulse"></div>
+            
+            <div class="hidden md:block w-1/2 pl-10 text-left">
+                <div class="text-sm font-bold text-primary mt-2">即將到來</div>
+            </div>
+        </div>
+        
+        <!-- Future Event -->
+        <div class="relative flex md:justify-end items-center md:items-start group">
+            <div class="hidden md:block w-1/2 pr-10 text-right">
+                <div class="text-sm font-medium text-gray-400 mt-2">預定場次</div>
+            </div>
+            
+            <div class="absolute left-3 md:left-1/2 w-4 h-4 rounded-full bg-white border-2 border-gray-300 transform -translate-x-1/2 mt-1 z-10 transition-colors group-hover:border-primary"></div>
+            
+            <div class="pl-10 md:pl-0 md:w-1/2 md:pl-10 w-full">
+                <div class="card p-4 hover:border-primary/30 transition-colors">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">4/5 (日)</span>
+                            <h4 class="font-bold text-gray-800">清明連假休課</h4>
+                        </div>
+                        <span class="badge badge-neutral bg-gray-50 border-gray-200 text-gray-500 text-xs py-0 h-5">線上宣導</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <div class="flex justify-center pt-8 pb-4">
+        <button class="w-12 h-12 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-primary hover:border-primary hover:shadow-md transition-all flex items-center justify-center">
+            <i class="fa-solid fa-plus text-xl"></i>
+        </button>
+    </div>
+
+</div>

@@ -1,0 +1,127 @@
+<!-- views/class-view.html -->
+<div class="space-y-4 pb-6 max-w-4xl mx-auto">
+    <!-- Header (Sticky) -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 md:sticky md:top-0 z-10 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-gray-800">班員資料 - 分班檢視</h2>
+        </div>
+        
+        <!-- Search within classes -->
+        <div class="relative w-full md:w-64">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+            <input type="text" class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm" placeholder="快速尋找班員...">
+        </div>
+    </div>
+
+    <!-- Accordion Group -->
+    <div class="space-y-3">
+        
+        <!-- Class 1 (Expanded) -->
+        <div class="card overflow-hidden transition-all duration-300">
+            <!-- Header (Toggle) -->
+            <button class="w-full px-5 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors focus:outline-none" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">明</div>
+                    <h3 class="font-bold text-gray-800 text-lg">明理班</h3>
+                    <span class="badge badge-neutral text-xs h-5 py-0 ml-2">32 人</span>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 font-medium">
+                        今日出席率: <span class="text-success font-bold">85%</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down chevron transition-transform rotate-180 text-gray-400"></i>
+                </div>
+            </button>
+            
+            <!-- Content List -->
+            <div class="border-t border-gray-200">
+                <div class="divide-y divide-gray-100">
+                    <!-- Member Item -->
+                    <div class="p-3 pl-6 pr-4 hover:bg-gray-50 flex items-center justify-between group cursor-pointer" onclick="document.querySelector('[data-view=\'member-detail\']').click()">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-success"></div>
+                            <div class="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                                <img src="https://i.pravatar.cc/150?u=a042581" alt="Avatar" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-sm text-gray-900 group-hover:text-primary transition-colors flex items-center gap-1">丁義國 <span class="badge badge-neutral text-[9px] py-0 px-1 h-[14px]">乾</span></h4>
+                                <p class="text-[10px] text-gray-500 font-mono">H211310005</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-gray-300 group-hover:text-primary"></i>
+                    </div>
+                    
+                    <!-- Member Item 2 -->
+                    <div class="p-3 pl-6 pr-4 hover:bg-gray-50 flex items-center justify-between group cursor-pointer" onclick="document.querySelector('[data-view=\'member-detail\']').click()">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-danger"></div>
+                            <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold text-sm">
+                                于
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-sm text-gray-900 group-hover:text-primary transition-colors flex items-center gap-1">于琴玲 <span class="badge badge-neutral text-[9px] py-0 px-1 h-[14px]">坤</span></h4>
+                                <p class="text-[10px] text-gray-500 font-mono">H311320125</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-gray-300 group-hover:text-primary"></i>
+                    </div>
+                    
+                    <div class="p-2 text-center border-t border-gray-50 bg-gray-50">
+                        <button class="text-primary text-xs w-full py-1 hover:underline">查看全部 32 人...</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Class 2 (Collapsed) -->
+        <div class="card overflow-hidden transition-all duration-300">
+            <button class="w-full px-5 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors focus:outline-none" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">新</div>
+                    <h3 class="font-bold text-gray-800 text-lg">新民班</h3>
+                    <span class="badge badge-neutral text-xs h-5 py-0 ml-2">28 人</span>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 font-medium">
+                        今日出席率: <span class="text-success font-bold">92%</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down chevron transition-transform text-gray-400"></i>
+                </div>
+            </button>
+            
+            <div class="border-t border-gray-200 hidden">
+                <div class="divide-y divide-gray-100">
+                    <div class="p-3 pl-6 pr-4">
+                        <p class="text-sm text-gray-500 text-center py-2">人員名單...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Class 3 (Collapsed) -->
+        <div class="card overflow-hidden transition-all duration-300">
+            <button class="w-full px-5 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors focus:outline-none" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">德</div>
+                    <h3 class="font-bold text-gray-800 text-lg">明德班</h3>
+                    <span class="badge badge-neutral text-xs h-5 py-0 ml-2">35 人</span>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 font-medium">
+                        今日出席率: <span class="text-warning font-bold">78%</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down chevron transition-transform text-gray-400"></i>
+                </div>
+            </button>
+            <div class="border-t border-gray-200 hidden">
+                <div class="p-4 text-center text-sm text-gray-400">人員名單...</div>
+            </div>
+        </div>
+
+    </div>
+</div>

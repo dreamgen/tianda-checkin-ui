@@ -1,0 +1,157 @@
+/* 
+  Custom CSS variables for 天達大班報到系統 UI 
+  Based on UI/UX Redesign Guide
+*/
+
+:root {
+    /* Brand Colors */
+    --color-primary: #2F6783;
+    --color-primary-dark: #1D4D63;
+    --color-primary-light: #E0EDF5;
+    
+    /* Semantic Colors */
+    --color-success: #10B97A;
+    --color-warning: #FBBF24;
+    --color-danger: #F0554C;
+    --color-neutral: #8F8F8F;
+    
+    /* Backgrounds & Surfaces */
+    --color-bg: #F5F7FA;
+    --color-card: #FFFFFF;
+    
+    /* Text Colors */
+    --color-text: #1A202C;
+    --color-subtext: #6B7280;
+    
+    /* Borders & Dividers */
+    --color-border: #E2E8F0;
+}
+
+/* Dark Mode Support (Optional/Automatic based on OS preference) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-bg: #0F1923;
+        --color-card: #1C2B3A;
+        --color-text: #E2E8F0;
+        --color-subtext: #A0AEC0;
+        --color-primary: #5BA8C8;
+        --color-border: #2D3748;
+    }
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Card utilities */
+.card {
+    background-color: var(--color-card);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--color-border);
+}
+
+@media (prefers-color-scheme: dark) {
+    .card {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+}
+
+/* Custom Scrollbar for better desktop experience */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+    ::-webkit-scrollbar-thumb {
+        background: #4A5568;
+    }
+}
+
+/* Hide scrollbar for clean mobile look but allow scrolling */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* Navigation Base Styling */
+.nav-item {
+    color: var(--color-subtext);
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+.nav-item.active {
+    color: var(--color-primary);
+}
+.sidebar-item {
+    color: var(--color-text);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+.sidebar-item:hover {
+    background-color: var(--color-primary-light);
+}
+@media (prefers-color-scheme: dark) {
+    .sidebar-item:hover {
+        background-color: rgba(91, 168, 200, 0.15);
+    }
+}
+.sidebar-item.active {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+/* Status Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+.badge-success { background-color: rgba(16, 185, 122, 0.1); color: var(--color-success); border: 1px solid rgba(16, 185, 122, 0.2); }
+.badge-danger { background-color: rgba(240, 85, 76, 0.1); color: var(--color-danger); border: 1px solid rgba(240, 85, 76, 0.2); }
+.badge-warning { background-color: rgba(251, 191, 36, 0.1); color: var(--color-warning); border: 1px solid rgba(251, 191, 36, 0.2); }
+.badge-neutral { background-color: rgba(143, 143, 143, 0.1); color: var(--color-neutral); border: 1px solid rgba(143, 143, 143, 0.2); }
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+}
+.status-dot.success { background-color: var(--color-success); }
+.status-dot.danger { background-color: var(--color-danger); }
+.status-dot.warning { background-color: var(--color-warning); }
+
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Base button primary override */
+.btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+}
+.btn-primary:active {
+    background-color: var(--color-primary-dark);
+}
