@@ -1226,7 +1226,9 @@ Router.register('attendance-stats', async () => {
     }
 
     // Populate class selector
-    const classes = [...new Set(_statsSchedules.map(s => s.className).filter(Boolean))];
+    const classes = [...new Set(_statsSchedules.flatMap(s =>
+      (s.className || '').split(',').map(c => c.trim()).filter(Boolean)
+    ))];
     const classSel = document.getElementById('stats-class-sel');
     if (classSel) {
       classSel.innerHTML = '<option value="">所有班別</option>' +
@@ -1253,7 +1255,9 @@ Router.register('attendance-stats', async () => {
 
 function onStatsClassChange() {
   const cls = document.getElementById('stats-class-sel')?.value || '';
-  const filtered = cls ? _statsSchedules.filter(s => s.className === cls) : _statsSchedules;
+  const filtered = cls
+    ? _statsSchedules.filter(s => (s.className || '').split(',').map(c => c.trim()).includes(cls))
+    : _statsSchedules;
   _populateStatsSchedSel(filtered);
   loadStatsForSchedule();
 }
@@ -1295,7 +1299,9 @@ async function loadScheduleView() {
     _allSchedules = Array.isArray(schedules) ? schedules : [];
 
     // Populate class filter dropdown
-    const classes = [...new Set(_allSchedules.map(s => s.className).filter(Boolean))];
+    const classes = [...new Set(_allSchedules.flatMap(s =>
+      (s.className || '').split(',').map(c => c.trim()).filter(Boolean)
+    ))];
     const classSel = document.getElementById('cs-class-filter');
     if (classSel) {
       const prev = classSel.value;
@@ -1314,7 +1320,9 @@ async function loadScheduleView() {
 
 function filterScheduleByClass() {
   const cls = document.getElementById('cs-class-filter')?.value || '';
-  const filtered = cls ? _allSchedules.filter(s => s.className === cls) : _allSchedules;
+  const filtered = cls
+    ? _allSchedules.filter(s => (s.className || '').split(',').map(c => c.trim()).includes(cls))
+    : _allSchedules;
   renderScheduleList(filtered);
 }
 
