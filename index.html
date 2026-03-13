@@ -979,12 +979,17 @@
 
       <div class="card">
         <div class="card-header"><i class="fa-solid fa-database text-brand"></i> 資料管理</div>
-        <div class="p-4 flex gap-2">
-          <button onclick="State.clearMemberCache(); showToast('班員快取已清除','success')" class="btn-secondary text-sm flex-1">
-            <i class="fa-solid fa-trash-can"></i> 清除快取
-          </button>
-          <button onclick="Router.navigateTo('class-schedule')" class="btn-secondary text-sm flex-1">
-            <i class="fa-solid fa-calendar"></i> 班程資料
+        <div class="p-4 space-y-2">
+          <div class="flex gap-2">
+            <button onclick="State.clearMemberCache(); showToast('班員快取已清除','success')" class="btn-secondary text-sm flex-1">
+              <i class="fa-solid fa-trash-can"></i> 清除快取
+            </button>
+            <button onclick="Router.navigateTo('class-schedule')" class="btn-secondary text-sm flex-1">
+              <i class="fa-solid fa-calendar"></i> 班程資料
+            </button>
+          </div>
+          <button onclick="refreshAllScheduleOptions()" class="btn-secondary text-sm w-full">
+            <i class="fa-solid fa-rotate"></i> 重新整理所有選項
           </button>
         </div>
       </div>

@@ -87,6 +87,17 @@ function getVerify() {
   return State.getSchedule()?.verify || 'passf';
 }
 
+// ── Schedules fetch with daily cache ──────────────────────────────────────
+async function fetchSchedules(filter = 'all', forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = State.getSchedulesCache(filter);
+    if (cached) return cached;
+  }
+  const data = await API.getSchedules(filter);
+  State.setSchedulesCache(filter, data);
+  return data;
+}
+
 // ── Mobile Sidebar ────────────────────────────────────────────────────────────
 function openMobileSidebar() {
   document.getElementById('mobile-sidebar-panel').classList.add('open');
@@ -152,7 +163,7 @@ Router.register('welcome', async () => {
   _welcomeSelectedClass = null;
 
   // Start fetching schedules with 3-second timeout
-  const schedulesPromise = API.getSchedules('all');
+  const schedulesPromise = fetchSchedules('all');
   const timeout = new Promise((_, rej) => setTimeout(() => rej('timeout'), 3000));
 
   try {
@@ -338,7 +349,7 @@ let _autoSchedulePendingData = null;
 async function promptAutoSchedule(onConfirm) {
   showBgLoading();
   try {
-    const schedules = await API.getSchedules('future');
+    const schedules = await fetchSchedules('future');
     hideBgLoading();
     if (!schedules || schedules.length === 0) {
       showToast('找不到未來班程，請手動設定', 'error');
@@ -1202,7 +1213,7 @@ Router.register('attendance-stats', async () => {
 
   showBgLoading();
   try {
-    const all = await API.getSchedules('all');
+    const all = await fetchSchedules('all');
     const today = new Date().toISOString().split('T')[0];
     _statsSchedules = (Array.isArray(all) ? all : [])
       .filter(s => s.date <= today)
@@ -1280,7 +1291,7 @@ async function loadScheduleView() {
   const filter = document.getElementById('cs-filter')?.value || 'all';
   showBgLoading();
   try {
-    const schedules = await API.getSchedules(filter);
+    const schedules = await fetchSchedules(filter);
     _allSchedules = Array.isArray(schedules) ? schedules : [];
 
     // Populate class filter dropdown
@@ -1372,24 +1383,15 @@ function applySchedule(s) {
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 let _settingsFutureSchedules = [];
 
-Router.register('settings', async () => {
-  const schedule = State.getSchedule() || {};
-  const settings = State.getSettings();
-
-  // Large text toggle
-  const toggle = document.getElementById('toggle-large-text');
-  if (toggle) toggle.classList.toggle('on', !!settings.largeText);
-
-  renderSettingsDisplay();
-
-  // Load future schedules into dropdown
+async function _populateSettingsScheduleSelect() {
   const select = document.getElementById('st-schedule-select');
   if (!select) return;
 
+  const schedule = State.getSchedule() || {};
   select.innerHTML = '<option value="">-- 載入中... --</option>';
   showBgLoading();
   try {
-    const schedules = await API.getSchedules('future');
+    const schedules = await fetchSchedules('future');
     _settingsFutureSchedules = Array.isArray(schedules) ? schedules : [];
     hideBgLoading();
 
@@ -1420,6 +1422,37 @@ Router.register('settings', async () => {
     select.innerHTML = '<option value="">-- 載入失敗，請重試 --</option>';
     showToast('載入班程失敗: ' + e.message, 'error');
   }
+}
+
+async function refreshAllScheduleOptions() {
+  State.clearSchedulesCache();
+  showBgLoading();
+  try {
+    await Promise.all([
+      fetchSchedules('all', true),
+      fetchSchedules('future', true),
+    ]);
+    showToast('班程選項已重新整理', 'success');
+    if (document.getElementById('st-schedule-select')) {
+      await _populateSettingsScheduleSelect();
+    }
+  } catch (e) {
+    showToast('重新整理失敗: ' + e.message, 'error');
+  } finally {
+    hideBgLoading();
+  }
+}
+
+Router.register('settings', async () => {
+  const settings = State.getSettings();
+
+  // Large text toggle
+  const toggle = document.getElementById('toggle-large-text');
+  if (toggle) toggle.classList.toggle('on', !!settings.largeText);
+
+  renderSettingsDisplay();
+
+  await _populateSettingsScheduleSelect();
 });
 
 function onScheduleSelectChange() {

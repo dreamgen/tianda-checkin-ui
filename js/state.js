@@ -149,6 +149,32 @@ const State = {
     try { localStorage.removeItem(attCacheKey(date, classCode)); } catch {}
   },
 
+  // ── Schedules Cache (依 filter，當天有效) ────────────────────────────────
+  getSchedulesCache(filter) {
+    try {
+      const raw = localStorage.getItem(`tianda_sched_${filter}`);
+      if (!raw) return null;
+      const { data, date } = JSON.parse(raw);
+      const today = new Date().toISOString().split('T')[0];
+      if (date !== today) return null;
+      return data;
+    } catch { return null; }
+  },
+
+  setSchedulesCache(filter, data) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem(`tianda_sched_${filter}`,
+        JSON.stringify({ data, date: today }));
+    } catch {}
+  },
+
+  clearSchedulesCache() {
+    ['all', 'future', 'past'].forEach(f => {
+      try { localStorage.removeItem(`tianda_sched_${f}`); } catch {}
+    });
+  },
+
   // ── Stats Cache (出席統計快取, today=5min, past=1h) ──────────────────────
   getStatsCache(date, classCode) {
     try {
