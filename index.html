@@ -412,6 +412,19 @@
       </div>
     </div>
 
+    <div id="dash-future-card" class="card p-4 hidden">
+      <div class="flex items-center gap-3 mb-3">
+        <i class="fa-solid fa-calendar-clock text-brand text-2xl"></i>
+        <div>
+          <p class="font-semibold text-gray-800">班程尚未開始</p>
+          <p id="dash-future-info" class="text-sm text-gray-500"></p>
+        </div>
+      </div>
+      <button onclick="Router.navigateTo('attendance-stats')" class="btn-secondary w-full text-sm">
+        <i class="fa-solid fa-chart-bar"></i> 查詢出席統計
+      </button>
+    </div>
+
     <div id="dash-kpi-row" class="grid grid-cols-2 gap-3 hidden">
       <div class="kpi-card border-l-4 border-success">
         <div class="flex items-center gap-2 mb-1">
@@ -468,6 +481,11 @@
       <div class="progress-bar">
         <div id="dash-progress-fill" class="progress-fill" style="width:0%"></div>
       </div>
+    </div>
+
+    <div id="dash-no-data" class="hidden text-center py-6 text-gray-400">
+      <i class="fa-solid fa-inbox text-3xl mb-2 block opacity-30"></i>
+      <p class="text-sm">暫無報到資料</p>
     </div>
 
     <div class="card hidden" id="dash-actions">
@@ -749,6 +767,16 @@
 <!-- ── ATTENDANCE STATS ───────────────────────────── -->
 <template id="tpl-attendance-stats">
   <div class="p-4 space-y-4">
+    <div id="stats-selector" class="space-y-2">
+      <div class="flex gap-2">
+        <select id="stats-class-sel" class="form-input flex-1 text-sm" onchange="onStatsClassChange()">
+          <option value="">所有班別</option>
+        </select>
+        <select id="stats-sched-sel" class="form-input flex-1 text-sm" onchange="loadStatsForSchedule()">
+          <option value="">-- 載入中 --</option>
+        </select>
+      </div>
+    </div>
     <div id="stats-no-schedule" class="setup-prompt hidden">
       <i class="fa-solid fa-chart-bar text-3xl mb-2 block"></i>
       <p class="font-semibold mb-3">尚未設定班次</p>
@@ -822,6 +850,9 @@
         <option value="all">所有班程</option>
         <option value="future">未來班程</option>
         <option value="past">過去班程</option>
+      </select>
+      <select id="cs-class-filter" onchange="filterScheduleByClass()" class="form-input flex-1 text-sm">
+        <option value="">所有班別</option>
       </select>
     </div>
     <div id="cs-list" class="space-y-2">

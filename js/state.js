@@ -149,6 +149,26 @@ const State = {
     try { localStorage.removeItem(attCacheKey(date, classCode)); } catch {}
   },
 
+  // ── Stats Cache (出席統計快取, today=5min, past=1h) ──────────────────────
+  getStatsCache(date, classCode) {
+    try {
+      const raw = localStorage.getItem(`tianda_stats_${date}_${classCode}`);
+      if (!raw) return null;
+      const entry = JSON.parse(raw);
+      const today = new Date().toISOString().split('T')[0];
+      const ttl = (date === today) ? 5 * 60 * 1000 : 60 * 60 * 1000;
+      if (Date.now() - entry.timestamp > ttl) return null;
+      return entry; // { data, timestamp }
+    } catch { return null; }
+  },
+
+  setStatsCache(date, classCode, data) {
+    try {
+      localStorage.setItem(`tianda_stats_${date}_${classCode}`,
+        JSON.stringify({ data, timestamp: Date.now() }));
+    } catch {}
+  },
+
   // ── Onboarding ────────────────────────────────────────────────────────────
   isOnboarded() {
     try {

@@ -238,6 +238,49 @@ function startFromWelcome() {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function formatUpdateTime(d = new Date()) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function renderDashStats(data, timestamp) {
+  const { present = 0, absent = 0, leave = 0, total = 0, male = 0, female = 0, byUnit = [] } = data;
+  const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+  document.getElementById('kpi-present').textContent = present;
+  document.getElementById('kpi-absent').textContent = absent;
+  document.getElementById('kpi-leave').textContent = leave;
+  document.getElementById('kpi-rate').textContent = rate + '%';
+  document.getElementById('dash-progress-text').textContent = `${present} / ${total}`;
+  document.getElementById('dash-progress-fill').style.width = rate + '%';
+  document.getElementById('kpi-male').textContent = male;
+  document.getElementById('kpi-female').textContent = female;
+
+  const noData = document.getElementById('dash-no-data');
+  if (noData) noData.classList.toggle('hidden', total > 0);
+
+  if (byUnit.length > 0) {
+    const byUnitEl = document.getElementById('dash-by-unit');
+    if (byUnitEl) byUnitEl.classList.remove('hidden');
+    const listEl = document.getElementById('dash-unit-list');
+    if (listEl) listEl.innerHTML = byUnit.slice(0, 8).map(u => {
+      const r = u.total > 0 ? Math.round((u.present / u.total) * 100) : 0;
+      return `<div>
+        <div class="flex justify-between text-sm mb-1.5">
+          <span class="font-medium text-gray-700">${u.unit}</span>
+          <span class="text-gray-500">${u.present}/${u.total}
+            <span class="text-brand font-semibold ml-1">${r}%</span>
+          </span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${r}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  const updEl = document.getElementById('dash-updated');
+  if (updEl) updEl.textContent = '資料更新時間: ' + formatUpdateTime(new Date(timestamp));
+}
+
 Router.register('dashboard', async () => {
   const schedule = State.getSchedule();
   if (!schedule || !schedule.date) {
@@ -245,51 +288,46 @@ Router.register('dashboard', async () => {
     return;
   }
 
-  ['dash-schedule-card','dash-kpi-row','dash-gender-row','dash-progress-card','dash-actions'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('hidden');
-  });
-
+  // Always show schedule card
+  const schedCard = document.getElementById('dash-schedule-card');
+  if (schedCard) schedCard.classList.remove('hidden');
   document.getElementById('dash-schedule-title').textContent = schedule.className || '班程';
   document.getElementById('dash-schedule-date').textContent = schedule.date;
   document.getElementById('dash-mode-badge').textContent = schedule.attendanceMode || '實體';
 
+  const today = new Date().toISOString().split('T')[0];
+
+  // Future schedule — show info card only
+  if (schedule.date > today) {
+    const futureCard = document.getElementById('dash-future-card');
+    if (futureCard) futureCard.classList.remove('hidden');
+    const infoEl = document.getElementById('dash-future-info');
+    if (infoEl) infoEl.textContent = `${schedule.date}  ${schedule.className || ''}  ${schedule.attendanceMode || '實體'}`;
+    return;
+  }
+
+  // Past or today — show KPI containers
+  ['dash-kpi-row','dash-gender-row','dash-progress-card','dash-actions'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden');
+  });
+
+  // Stale-while-revalidate for stats
+  const cached = State.getStatsCache(schedule.date, schedule.classCode);
+  if (cached) {
+    renderDashStats(cached.data, cached.timestamp);
+  }
+
+  showBgLoading();
   try {
-    const data = await API.getAttendanceStats(schedule.date, schedule.classCode);
-    const { present = 0, absent = 0, leave = 0, total = 0, male = 0, female = 0, byUnit = [] } = data;
-    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-
-    document.getElementById('kpi-present').textContent = present;
-    document.getElementById('kpi-absent').textContent = absent;
-    document.getElementById('kpi-leave').textContent = leave;
-    document.getElementById('kpi-rate').textContent = rate + '%';
-    document.getElementById('dash-progress-text').textContent = `${present} / ${total}`;
-    document.getElementById('dash-progress-fill').style.width = rate + '%';
-
-    if (male !== undefined) {
-      document.getElementById('kpi-male').textContent = male;
-      document.getElementById('kpi-female').textContent = female;
-    }
-
-    if (byUnit.length > 0) {
-      document.getElementById('dash-by-unit').classList.remove('hidden');
-      document.getElementById('dash-unit-list').innerHTML = byUnit.slice(0, 8).map(u => {
-        const r = u.total > 0 ? Math.round((u.present / u.total) * 100) : 0;
-        return `<div>
-          <div class="flex justify-between text-sm mb-1.5">
-            <span class="font-medium text-gray-700">${u.unit}</span>
-            <span class="text-gray-500">${u.present}/${u.total}
-              <span class="text-brand font-semibold ml-1">${r}%</span>
-            </span>
-          </div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${r}%"></div></div>
-        </div>`;
-      }).join('');
-    }
-
-    document.getElementById('dash-updated').textContent = '資料更新時間: ' + new Date().toLocaleTimeString('zh-TW');
+    const fresh = await API.getAttendanceStats(schedule.date, schedule.classCode);
+    State.setStatsCache(schedule.date, schedule.classCode, fresh);
+    renderDashStats(fresh, Date.now());
+    if (cached) showToast('資料已更新', 'info', 2000);
   } catch (e) {
-    showToast('載入統計失敗: ' + e.message, 'error');
+    if (!cached) showToast('載入統計失敗: ' + e.message, 'error');
+  } finally {
+    hideBgLoading();
   }
 });
 
@@ -1117,102 +1155,203 @@ function toggleClassSection(header) {
 }
 
 // ── ATTENDANCE STATS ──────────────────────────────────────────────────────────
-Router.register('attendance-stats', async () => {
-  const schedule = State.getSchedule();
-  if (!schedule?.date) {
-    document.getElementById('stats-no-schedule').classList.remove('hidden');
-    return;
-  }
+let _statsSchedules = [];  // all past+today schedules (sorted newest first)
+
+function renderStatsData(data) {
+  const { present = 0, absent = 0, leave = 0, total = 0, male = 0, female = 0, byUnit = [] } = data;
+  const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+  document.getElementById('stats-present').textContent = present;
+  document.getElementById('stats-total-label').textContent = `/ ${total}`;
+  document.getElementById('stats-rate').textContent = rate + '%';
+  document.getElementById('stats-fill').style.width = rate + '%';
+  document.getElementById('stats-male').textContent = male;
+  document.getElementById('stats-female').textContent = female;
+  document.getElementById('stats-leave').textContent = leave;
+  document.getElementById('stats-absent').textContent = absent;
+
+  document.getElementById('stats-unit-list').innerHTML = byUnit.map(u => {
+    const r = u.total > 0 ? Math.round((u.present / u.total) * 100) : 0;
+    return `<div>
+      <div class="flex justify-between text-sm mb-1.5">
+        <span class="font-medium text-gray-700">${u.unit}</span>
+        <span class="text-gray-500">
+          ${u.present}/${u.total}
+          <span class="font-semibold text-brand ml-1">${r}%</span>
+        </span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${r}%"></div></div>
+    </div>`;
+  }).join('');
+
   document.getElementById('stats-main').classList.remove('hidden');
+}
+
+function _populateStatsSchedSel(schedules) {
+  const sel = document.getElementById('stats-sched-sel');
+  if (!sel) return;
+  sel.innerHTML = schedules.length
+    ? schedules.map((s, i) =>
+        `<option value="${_statsSchedules.indexOf(s)}">${s.dateFormatted || s.date} ${s.className || ''}</option>`
+      ).join('')
+    : '<option value="">-- 無可用班程 --</option>';
+}
+
+Router.register('attendance-stats', async () => {
+  _statsSchedules = [];
+
+  showBgLoading();
   try {
-    const data = await API.getAttendanceStats(schedule.date, schedule.classCode);
-    const { present = 0, absent = 0, leave = 0, total = 0, male = 0, female = 0, byUnit = [] } = data;
-    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    const all = await API.getSchedules('all');
+    const today = new Date().toISOString().split('T')[0];
+    _statsSchedules = (Array.isArray(all) ? all : [])
+      .filter(s => s.date <= today)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    hideBgLoading();
 
-    document.getElementById('stats-present').textContent = present;
-    document.getElementById('stats-total-label').textContent = `/ ${total}`;
-    document.getElementById('stats-rate').textContent = rate + '%';
-    document.getElementById('stats-fill').style.width = rate + '%';
-    document.getElementById('stats-male').textContent = male;
-    document.getElementById('stats-female').textContent = female;
-    document.getElementById('stats-leave').textContent = leave;
-    document.getElementById('stats-absent').textContent = absent;
+    if (_statsSchedules.length === 0) {
+      document.getElementById('stats-no-schedule').classList.remove('hidden');
+      return;
+    }
 
-    const maxPresent = byUnit.length > 0 ? Math.max(...byUnit.map(u => u.total || 0)) : 1;
-    document.getElementById('stats-unit-list').innerHTML = byUnit.map(u => {
-      const r = u.total > 0 ? Math.round((u.present / u.total) * 100) : 0;
-      return `<div>
-        <div class="flex justify-between text-sm mb-1.5">
-          <span class="font-medium text-gray-700">${u.unit}</span>
-          <span class="text-gray-500">
-            ${u.present}/${u.total}
-            <span class="font-semibold text-brand ml-1">${r}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:${r}%"></div>
-        </div>
-      </div>`;
-    }).join('');
+    // Populate class selector
+    const classes = [...new Set(_statsSchedules.map(s => s.className).filter(Boolean))];
+    const classSel = document.getElementById('stats-class-sel');
+    if (classSel) {
+      classSel.innerHTML = '<option value="">所有班別</option>' +
+        classes.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    // Populate schedule selector (all)
+    _populateStatsSchedSel(_statsSchedules);
+
+    // Pre-select current schedule if it's in the past list
+    const cur = State.getSchedule();
+    const sel = document.getElementById('stats-sched-sel');
+    if (cur && sel) {
+      const idx = _statsSchedules.findIndex(s => s.date === cur.date && s.classCode === cur.classCode);
+      if (idx >= 0) sel.value = String(idx);
+    }
+
+    await loadStatsForSchedule();
   } catch (e) {
-    showToast('載入統計失敗: ' + e.message, 'error');
+    hideBgLoading();
+    showToast('載入班程失敗: ' + e.message, 'error');
   }
 });
 
+function onStatsClassChange() {
+  const cls = document.getElementById('stats-class-sel')?.value || '';
+  const filtered = cls ? _statsSchedules.filter(s => s.className === cls) : _statsSchedules;
+  _populateStatsSchedSel(filtered);
+  loadStatsForSchedule();
+}
+
+async function loadStatsForSchedule() {
+  const sel = document.getElementById('stats-sched-sel');
+  const idx = parseInt(sel?.value, 10);
+  if (isNaN(idx) || !_statsSchedules[idx]) {
+    document.getElementById('stats-main').classList.add('hidden');
+    return;
+  }
+  const s = _statsSchedules[idx];
+
+  const cached = State.getStatsCache(s.date, s.classCode);
+  if (cached) renderStatsData(cached.data);
+
+  showBgLoading();
+  try {
+    const fresh = await API.getAttendanceStats(s.date, s.classCode);
+    State.setStatsCache(s.date, s.classCode, fresh);
+    renderStatsData(fresh);
+  } catch (e) {
+    if (!cached) showToast('載入統計失敗: ' + e.message, 'error');
+  } finally {
+    hideBgLoading();
+  }
+}
+
 // ── CLASS SCHEDULE ────────────────────────────────────────────────────────────
+let _allSchedules = [];
+
 Router.register('class-schedule', () => { loadScheduleView(); });
 
 async function loadScheduleView() {
   const filter = document.getElementById('cs-filter')?.value || 'all';
+  showBgLoading();
   try {
     const schedules = await API.getSchedules(filter);
-    const listEl = document.getElementById('cs-list');
-    if (!listEl) return;
-    if (!schedules.length) {
-      listEl.innerHTML = '<div class="card p-8 text-center text-gray-400">無班程資料</div>';
-      return;
+    _allSchedules = Array.isArray(schedules) ? schedules : [];
+
+    // Populate class filter dropdown
+    const classes = [...new Set(_allSchedules.map(s => s.className).filter(Boolean))];
+    const classSel = document.getElementById('cs-class-filter');
+    if (classSel) {
+      const prev = classSel.value;
+      classSel.innerHTML = '<option value="">所有班別</option>' +
+        classes.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (prev && classes.includes(prev)) classSel.value = prev;
     }
 
-    const currentSchedule = State.getSchedule();
-    const today = new Date().toISOString().split('T')[0];
-
-    listEl.innerHTML = `<div class="timeline">${schedules.map(s => {
-      const d = s.date || '';
-      let dotClass = 'past';
-      let statusLabel = '';
-      if (d === today) {
-        dotClass = 'current';
-        statusLabel = '<span class="badge badge-present text-xs">今日</span>';
-      } else if (d > today) {
-        dotClass = 'future';
-        statusLabel = '<span class="badge badge-mode text-xs">未來</span>';
-      } else {
-        statusLabel = '<span class="badge badge-unknown text-xs">已結束</span>';
-      }
-      if (s.isActive) statusLabel = '<span class="badge badge-active text-xs">啟用中</span>';
-
-      const isCurrent = currentSchedule?.date === s.date && currentSchedule?.classCode === s.classCode;
-
-      return `<div class="timeline-item">
-        <div class="timeline-dot ${dotClass}"></div>
-        <div class="card p-4 ${isCurrent ? 'ring-2 ring-brand' : ''}">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <span class="font-semibold text-gray-800">${s.dateFormatted || s.date}</span>
-                ${statusLabel}
-              </div>
-              <div class="text-sm text-gray-500">${s.className || ''} · 班別 ${s.classCode || ''} · ${s.attendanceMode || '實體'}</div>
-            </div>
-            <button onclick="applySchedule(${JSON.stringify(s).replace(/"/g,'&quot;')})"
-                    class="btn-secondary text-xs px-3 py-1.5 shrink-0">套用</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('')}</div>`;
+    filterScheduleByClass();
   } catch (e) {
     showToast('載入班程失敗: ' + e.message, 'error');
+  } finally {
+    hideBgLoading();
   }
+}
+
+function filterScheduleByClass() {
+  const cls = document.getElementById('cs-class-filter')?.value || '';
+  const filtered = cls ? _allSchedules.filter(s => s.className === cls) : _allSchedules;
+  renderScheduleList(filtered);
+}
+
+function renderScheduleList(schedules) {
+  const listEl = document.getElementById('cs-list');
+  if (!listEl) return;
+  if (!schedules.length) {
+    listEl.innerHTML = '<div class="card p-8 text-center text-gray-400">無班程資料</div>';
+    return;
+  }
+
+  const currentSchedule = State.getSchedule();
+  const today = new Date().toISOString().split('T')[0];
+
+  listEl.innerHTML = `<div class="timeline">${schedules.map(s => {
+    const d = s.date || '';
+    let dotClass = 'past';
+    let statusLabel = '';
+    if (d === today) {
+      dotClass = 'current';
+      statusLabel = '<span class="badge badge-present text-xs">今日</span>';
+    } else if (d > today) {
+      dotClass = 'future';
+      statusLabel = '<span class="badge badge-mode text-xs">未來</span>';
+    } else {
+      statusLabel = '<span class="badge badge-unknown text-xs">已結束</span>';
+    }
+    if (s.isActive) statusLabel = '<span class="badge badge-active text-xs">啟用中</span>';
+
+    const isCurrent = currentSchedule?.date === s.date && currentSchedule?.classCode === s.classCode;
+
+    return `<div class="timeline-item">
+      <div class="timeline-dot ${dotClass}"></div>
+      <div class="card p-4 ${isCurrent ? 'ring-2 ring-brand' : ''}">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="font-semibold text-gray-800">${s.dateFormatted || s.date}</span>
+              ${statusLabel}
+            </div>
+            <div class="text-sm text-gray-500">${s.className || ''} · 班別 ${s.classCode || ''} · ${s.attendanceMode || '實體'}</div>
+          </div>
+          <button onclick="applySchedule(${JSON.stringify(s).replace(/"/g,'&quot;')})"
+                  class="btn-secondary text-xs px-3 py-1.5 shrink-0">套用</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function applySchedule(s) {
