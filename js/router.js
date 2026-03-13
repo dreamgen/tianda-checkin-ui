@@ -4,6 +4,12 @@
  */
 
 const VIEWS = {
+  'welcome': {
+    title: '歡迎使用',
+    navTab: 'home',
+    sidebarItem: 'dashboard',
+    init: null,
+  },
   'dashboard': {
     title: '即時主頁',
     navTab: 'home',
