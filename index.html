@@ -229,6 +229,17 @@
     .form-input:focus { border-color: #2F6783; box-shadow: 0 0 0 3px rgba(47,103,131,.1); }
     .form-label { display: block; font-size: .8rem; font-weight: 500; color: #6b7280; margin-bottom: 5px; }
 
+    /* ── Background loading indicator ────────────────── */
+    #bg-loading { position: fixed; top: 64px; right: 12px; z-index: 50; pointer-events: none; }
+    @media(min-width:768px){ #bg-loading { top: 12px; right: 16px; } }
+    .spinner-sm { width: 22px; height: 22px; border: 2.5px solid rgba(47,103,131,.2); border-top-color: #2F6783; border-radius: 50%; animation: spin .7s linear infinite; }
+    .bg-loading-dot { display: flex; align-items: center; gap: 6px; background: white; border-radius: 99px; padding: 4px 10px 4px 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); font-size: .7rem; color: #6b7280; }
+
+    /* ── Welcome screen ──────────────────────────────── */
+    .welcome-screen { background: linear-gradient(160deg, #f0f4f8 0%, #e0edf5 100%); min-height: 100%; }
+    .class-chip { display: inline-flex; align-items: center; padding: 10px 20px; border-radius: 12px; border: 2px solid #e5e7eb; background: white; font-size: .9rem; font-weight: 500; cursor: pointer; transition: all .15s; }
+    .class-chip:hover, .class-chip.selected { border-color: #2F6783; background: #e0edf5; color: #2F6783; }
+
     /* ── Filter pills ────────────────────────────────── */
     .filter-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--color-primary-light); color: var(--color-primary); border-radius: 99px; padding: 4px 10px; font-size: .75rem; font-weight: 500; }
     .filter-pill button { line-height: 1; background: none; border: none; cursor: pointer; color: var(--color-primary); opacity: .7; }
@@ -284,6 +295,31 @@
   </div>
 </div>
 
+<!-- Auto Schedule Bottom Sheet -->
+<div id="auto-schedule-overlay" class="bottom-sheet-overlay" onclick="cancelAutoSchedule()"></div>
+<div id="auto-schedule-sheet" class="bottom-sheet">
+  <div class="bottom-sheet-handle"></div>
+  <h3 class="font-bold text-gray-800 mb-1">找到最近班程</h3>
+  <p class="text-xs text-gray-400 mb-4">是否使用此班次？</p>
+  <div id="auto-schedule-info" class="card p-4 mb-4 bg-brand-pale border border-brand/20">
+    <div class="flex items-center gap-3">
+      <i class="fa-solid fa-calendar-day text-brand text-xl"></i>
+      <div>
+        <p id="auto-schedule-date" class="font-bold text-gray-800"></p>
+        <p id="auto-schedule-name" class="text-sm text-gray-500"></p>
+      </div>
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <button onclick="cancelAutoSchedule()" class="btn-secondary flex-1">
+      <i class="fa-solid fa-gear"></i> 否，前往設定
+    </button>
+    <button onclick="confirmAutoSchedule()" class="btn-primary flex-1">
+      <i class="fa-solid fa-check"></i> 是，使用此班次
+    </button>
+  </div>
+</div>
+
 <!-- Mobile Sidebar Overlay -->
 <div id="mobile-sidebar-overlay" onclick="closeMobileSidebar()"></div>
 <div id="mobile-sidebar-panel">
@@ -318,6 +354,12 @@
       </div>
       <div id="schedule-badge" class="hidden"></div>
     </header>
+
+    <!-- Background loading indicator -->
+    <div id="bg-loading" class="bg-loading-dot hidden">
+      <div class="spinner-sm"></div>
+      <span>更新中</span>
+    </div>
 
     <!-- View Container -->
     <main id="app-view"></main>
@@ -790,6 +832,55 @@
   </div>
 </template>
 
+<!-- ── WELCOME ────────────────────────────────────── -->
+<template id="tpl-welcome">
+  <div class="welcome-screen flex flex-col items-center justify-center p-6 text-center">
+    <div class="w-24 h-24 rounded-3xl bg-brand flex items-center justify-center text-4xl font-bold text-white mb-6 shadow-lg">天</div>
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">天達大班報到系統</h1>
+    <p class="text-gray-500 text-sm mb-8">您的智慧報到管理助手</p>
+
+    <!-- Loading state -->
+    <div id="welcome-loading" class="flex items-center gap-2 text-gray-400 text-sm mb-6">
+      <div class="spinner-sm"></div>
+      <span>正在載入班別資訊…</span>
+    </div>
+
+    <!-- Class selection (shown when multiple classes) -->
+    <div id="welcome-class-section" class="hidden w-full max-w-sm mb-6">
+      <p class="text-sm font-medium text-gray-600 mb-3">請選擇您的班別</p>
+      <div id="welcome-class-chips" class="flex flex-wrap gap-2 justify-center"></div>
+    </div>
+
+    <!-- Schedule preview (shown after class selected) -->
+    <div id="welcome-schedule-preview" class="hidden w-full max-w-sm mb-6">
+      <div id="welcome-stats-card" class="hidden card p-4 mb-3">
+        <p class="text-xs text-gray-400 mb-2 text-left">最近一次班程統計</p>
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div><div id="wkpi-present" class="text-xl font-bold text-success">-</div><div class="text-xs text-gray-400">已到</div></div>
+          <div><div id="wkpi-absent" class="text-xl font-bold text-gray-400">-</div><div class="text-xs text-gray-400">未到</div></div>
+          <div><div id="wkpi-leave" class="text-xl font-bold text-yellow-500">-</div><div class="text-xs text-gray-400">請假</div></div>
+          <div><div id="wkpi-rate" class="text-xl font-bold text-brand">-</div><div class="text-xs text-gray-400">出席率</div></div>
+        </div>
+        <div class="progress-bar mt-3"><div id="wkpi-fill" class="progress-fill" style="width:0%"></div></div>
+      </div>
+      <div id="welcome-next-card" class="hidden card p-4 mb-3">
+        <p class="text-xs text-gray-400 mb-1 text-left">下次班程預告</p>
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-calendar-check text-brand text-2xl"></i>
+          <div class="text-left">
+            <p id="welcome-next-date" class="font-bold text-gray-800"></p>
+            <p id="welcome-next-name" class="text-sm text-gray-500"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="welcome-start-btn" onclick="startFromWelcome()" class="btn-primary w-full max-w-sm py-3 text-base">
+      <i class="fa-solid fa-arrow-right-to-bracket"></i> 開始使用
+    </button>
+  </div>
+</template>
+
 <!-- ── SETTINGS ───────────────────────────────────── -->
 <template id="tpl-settings">
   <div class="p-4 space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start">
@@ -798,35 +889,36 @@
       <div class="card">
         <div class="card-header"><i class="fa-solid fa-calendar-check text-brand"></i> 班程設定</div>
         <div class="p-4 space-y-3">
-          <button onclick="fetchActiveSchedule()" class="btn-secondary w-full text-sm py-2.5">
-            <i class="fa-solid fa-cloud-arrow-down"></i> 自動填入當前班程
-          </button>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="form-label">班程日期</label>
-              <input type="date" id="st-date" class="form-input">
+          <div>
+            <label class="form-label">選擇未來班程</label>
+            <select id="st-schedule-select" class="form-input" onchange="onScheduleSelectChange()">
+              <option value="">-- 載入中... --</option>
+            </select>
+          </div>
+          <!-- Read-only info shown after schedule selected -->
+          <div id="st-schedule-detail" class="hidden space-y-2 bg-gray-50 rounded-xl p-3 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-400">日期</span>
+              <span id="st-detail-date" class="font-medium text-gray-700"></span>
             </div>
-            <div>
-              <label class="form-label">班別代碼</label>
-              <input type="text" id="st-classcode" placeholder="如：1" class="form-input">
+            <div class="flex justify-between">
+              <span class="text-gray-400">班別</span>
+              <span id="st-detail-name" class="font-medium text-gray-700"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">出勤方式</span>
+              <span id="st-detail-mode" class="font-medium text-gray-700"></span>
             </div>
           </div>
           <div>
-            <label class="form-label">班別名稱（顯示用）</label>
-            <input type="text" id="st-classname" placeholder="如：明理班" class="form-input">
-          </div>
-          <div>
-            <label class="form-label">驗證密碼 (CheckPassToday)</label>
-            <input type="text" id="st-verify" placeholder="今日驗證密碼" class="form-input">
-          </div>
-          <div>
-            <label class="form-label">出勤方式</label>
+            <label class="form-label">驗證密碼 <span class="text-gray-300">(留空=不需密碼，送出 passf)</span></label>
             <div class="flex gap-2">
-              <button id="btn-mode-physical" onclick="setMode('實體')" class="flex-1 py-2.5 text-sm rounded-xl border-2 border-brand bg-brand text-white font-semibold">
-                <i class="fa-solid fa-person-walking mr-1"></i>實體
+              <input type="text" id="st-verify" placeholder="留空=不需密碼" class="form-input flex-1">
+              <button onclick="autoFillVerify()" class="btn-secondary px-3 text-xs shrink-0">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 自動
               </button>
-              <button id="btn-mode-online" onclick="setMode('線上')" class="flex-1 py-2.5 text-sm rounded-xl border-2 border-gray-200 text-gray-600 font-semibold">
-                <i class="fa-solid fa-video mr-1"></i>線上
+              <button onclick="document.getElementById('st-verify').value=''" class="btn-secondary px-3 text-xs shrink-0">
+                <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>

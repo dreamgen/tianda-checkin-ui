@@ -9,7 +9,6 @@ let _scannerFacingMode = 'environment';
 let _currentAttendance = {};   // id -> {isCheckedIn, isLeave, status}
 let _allMembers = [];
 let _mcChecked = new Set();    // manually checked IDs in manual-checkin
-let _selectedAttendanceMode = '實體';
 let _mlViewMode = 'list';      // 'list' or 'grid'
 let _qsActiveFilters = {};     // active filters for quick-search
 let _shareUrl = '';            // generated share URL
@@ -68,6 +67,26 @@ function hideLoading() {
   document.getElementById('loading-overlay').classList.remove('show');
 }
 
+// ── Background loading (non-blocking spinner) ──────────────────────────────
+let _bgLoadingCount = 0;
+function showBgLoading() {
+  _bgLoadingCount++;
+  const el = document.getElementById('bg-loading');
+  if (el) el.classList.remove('hidden');
+}
+function hideBgLoading() {
+  if (--_bgLoadingCount <= 0) {
+    _bgLoadingCount = 0;
+    const el = document.getElementById('bg-loading');
+    if (el) el.classList.add('hidden');
+  }
+}
+
+// ── Verify helper ─────────────────────────────────────────────────────────
+function getVerify() {
+  return State.getSchedule()?.verify || 'passf';
+}
+
 // ── Mobile Sidebar ────────────────────────────────────────────────────────────
 function openMobileSidebar() {
   document.getElementById('mobile-sidebar-panel').classList.add('open');
@@ -122,6 +141,100 @@ function avatarColor(name) {
   ];
   const code = (name || '?').charCodeAt(0);
   return colors[code % colors.length];
+}
+
+// ── WELCOME ───────────────────────────────────────────────────────────────────
+let _welcomeSchedules = [];
+let _welcomeSelectedClass = null;
+
+Router.register('welcome', async () => {
+  _welcomeSchedules = [];
+  _welcomeSelectedClass = null;
+
+  // Start fetching schedules with 3-second timeout
+  const schedulesPromise = API.getSchedules('all');
+  const timeout = new Promise((_, rej) => setTimeout(() => rej('timeout'), 3000));
+
+  try {
+    const schedules = await Promise.race([schedulesPromise, timeout]);
+    _welcomeSchedules = Array.isArray(schedules) ? schedules : [];
+
+    const loadingEl = document.getElementById('welcome-loading');
+    if (loadingEl) loadingEl.classList.add('hidden');
+
+    const classes = [...new Set(_welcomeSchedules.map(s => s.className).filter(Boolean))];
+    if (classes.length === 1) {
+      await selectWelcomeClass(classes[0]);
+    } else if (classes.length > 1) {
+      const section = document.getElementById('welcome-class-section');
+      const chips = document.getElementById('welcome-class-chips');
+      if (section && chips) {
+        chips.innerHTML = classes.map(c =>
+          `<button class="class-chip" onclick="selectWelcomeClass('${c}')">${c}</button>`
+        ).join('');
+        section.classList.remove('hidden');
+      }
+    }
+  } catch {
+    // Timeout or error — hide spinner, show start button
+    const loadingEl = document.getElementById('welcome-loading');
+    if (loadingEl) loadingEl.classList.add('hidden');
+  }
+});
+
+async function selectWelcomeClass(className) {
+  _welcomeSelectedClass = className;
+  State.setPreferredClass(className);
+
+  // Mark chip selected
+  document.querySelectorAll('.class-chip').forEach(chip => {
+    chip.classList.toggle('selected', chip.textContent.trim() === className);
+  });
+
+  const previewEl = document.getElementById('welcome-schedule-preview');
+  if (!previewEl) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const classSchedules = _welcomeSchedules.filter(s => s.className === className);
+
+  // Find most recent past schedule
+  const pastSchedules = classSchedules.filter(s => s.date <= today).sort((a, b) => b.date.localeCompare(a.date));
+  const futureSchedules = classSchedules.filter(s => s.date > today).sort((a, b) => a.date.localeCompare(b.date));
+
+  previewEl.classList.remove('hidden');
+
+  if (pastSchedules.length > 0) {
+    const last = pastSchedules[0];
+    try {
+      showBgLoading();
+      const stats = await API.getAttendanceStats(last.date, last.classCode);
+      hideBgLoading();
+      const { present = 0, absent = 0, leave = 0, total = 0 } = stats;
+      const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+      const statsCard = document.getElementById('welcome-stats-card');
+      if (statsCard) {
+        document.getElementById('wkpi-present').textContent = present;
+        document.getElementById('wkpi-absent').textContent = absent;
+        document.getElementById('wkpi-leave').textContent = leave;
+        document.getElementById('wkpi-rate').textContent = rate + '%';
+        document.getElementById('wkpi-fill').style.width = rate + '%';
+        statsCard.classList.remove('hidden');
+      }
+    } catch { hideBgLoading(); }
+  } else if (futureSchedules.length > 0) {
+    const next = futureSchedules[0];
+    const nextCard = document.getElementById('welcome-next-card');
+    if (nextCard) {
+      document.getElementById('welcome-next-date').textContent = next.dateFormatted || next.date;
+      document.getElementById('welcome-next-name').textContent = next.className || '';
+      nextCard.classList.remove('hidden');
+    }
+  }
+}
+
+function startFromWelcome() {
+  State.setOnboarded();
+  Router.navigateTo('dashboard');
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
@@ -180,11 +293,74 @@ Router.register('dashboard', async () => {
   }
 });
 
+// ── Auto Schedule Prompt ──────────────────────────────────────────────────────
+let _autoScheduleConfirmCallback = null;
+let _autoSchedulePendingData = null;
+
+async function promptAutoSchedule(onConfirm) {
+  showBgLoading();
+  try {
+    const schedules = await API.getSchedules('future');
+    hideBgLoading();
+    if (!schedules || schedules.length === 0) {
+      showToast('找不到未來班程，請手動設定', 'error');
+      Router.navigateTo('settings');
+      return;
+    }
+    const nearest = schedules[0];
+    _autoSchedulePendingData = nearest;
+    _autoScheduleConfirmCallback = onConfirm;
+
+    const dateEl = document.getElementById('auto-schedule-date');
+    const nameEl = document.getElementById('auto-schedule-name');
+    if (dateEl) dateEl.textContent = nearest.dateFormatted || nearest.date;
+    if (nameEl) nameEl.textContent = `${nearest.className || ''} · ${nearest.attendanceMode || '實體'}`;
+
+    document.getElementById('auto-schedule-overlay').classList.add('open');
+    document.getElementById('auto-schedule-sheet').classList.add('open');
+  } catch (e) {
+    hideBgLoading();
+    showToast('無法取得班程: ' + e.message, 'error');
+    Router.navigateTo('settings');
+  }
+}
+
+function confirmAutoSchedule() {
+  const s = _autoSchedulePendingData;
+  if (s) {
+    State.setSchedule({
+      date: s.date,
+      classCode: s.classCode,
+      className: s.className,
+      attendanceMode: s.attendanceMode || '實體',
+      verify: s.verify || '',
+    });
+    updateScheduleDisplay();
+    showToast('已套用班程: ' + (s.dateFormatted || s.date), 'success');
+  }
+  document.getElementById('auto-schedule-overlay').classList.remove('open');
+  document.getElementById('auto-schedule-sheet').classList.remove('open');
+  if (_autoScheduleConfirmCallback) {
+    _autoScheduleConfirmCallback();
+    _autoScheduleConfirmCallback = null;
+  }
+}
+
+function cancelAutoSchedule() {
+  _autoScheduleConfirmCallback = null;
+  _autoSchedulePendingData = null;
+  document.getElementById('auto-schedule-overlay').classList.remove('open');
+  document.getElementById('auto-schedule-sheet').classList.remove('open');
+  Router.navigateTo('settings');
+}
+
 // ── SCANNER ───────────────────────────────────────────────────────────────────
 Router.register('scanner', () => {
-  const schedule = State.getSchedule();
-  if (!schedule || !schedule.verify) {
-    document.getElementById('scanner-setup-warn').classList.remove('hidden');
+  if (!State.hasSchedule()) {
+    promptAutoSchedule(() => {
+      document.getElementById('scanner-main').classList.remove('hidden');
+      startScanner();
+    });
     return;
   }
   document.getElementById('scanner-main').classList.remove('hidden');
@@ -256,7 +432,7 @@ async function confirmCheckin(id, name) {
   const schedule = State.getSchedule();
   showLoading('報到中...');
   try {
-    await API.checkin(id, name, schedule.verify, schedule.classCode, schedule.attendanceMode || '實體');
+    await API.checkin(id, name, getVerify(), schedule.classCode, schedule.attendanceMode || '實體');
     hideLoading();
 
     // Show success overlay briefly
@@ -305,37 +481,75 @@ async function toggleFlashlight() {
 // ── MANUAL CHECKIN ────────────────────────────────────────────────────────────
 Router.register('manual-checkin', async () => {
   _mcChecked = new Set();
+  if (!State.hasSchedule()) {
+    promptAutoSchedule(() => loadMCData());
+    return;
+  }
   await loadMCData();
 });
 
 async function loadMCData() {
   const schedule = State.getSchedule();
   if (!schedule || !schedule.date) return;
+
+  // Load attendance records
   try {
-    const result = await API.getAttendanceByDate(schedule.date, schedule.classCode);
-    const records = result.records || [];
-    _currentAttendance = {};
-    records.forEach(r => { _currentAttendance[r.id] = r; });
-
-    let members = State.getMemberCache();
-    if (!members) {
-      const res = await API.getMembers({ status: 'active' });
-      members = res.members || [];
-      State.setMemberCache(members);
+    const cached = State.getAttendanceCache(schedule.date, schedule.classCode);
+    if (cached) {
+      _currentAttendance = {};
+      cached.forEach(r => { _currentAttendance[r.id] = r; });
     }
-    _allMembers = members;
+    // Fetch fresh attendance in background
+    API.getAttendanceByDate(schedule.date, schedule.classCode).then(result => {
+      const records = result.records || [];
+      _currentAttendance = {};
+      records.forEach(r => { _currentAttendance[r.id] = r; });
+      State.setAttendanceCache(schedule.date, schedule.classCode, records);
+      renderMemberList();
+    }).catch(() => {});
+  } catch {}
 
-    const units = [...new Set(members.map(m => m.unit).filter(Boolean))].sort();
-    const unitSel = document.getElementById('mc-filter-unit');
-    if (unitSel) {
-      unitSel.innerHTML = '<option value="">所有區別</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
-    }
-    document.getElementById('mc-count').textContent = `共 ${members.length} 位`;
+  // Load members with stale-while-revalidate
+  const cachedMembers = State.getMemberCache();
+  if (cachedMembers) {
+    _allMembers = cachedMembers;
+    _populateMcFilters(_allMembers);
     renderMemberList();
-  } catch (e) {
-    const listEl = document.getElementById('mc-member-list');
-    if (listEl) listEl.innerHTML = `<div class="p-6 text-center text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${e.message}</div>`;
+    showBgLoading();
+    API.getMembers({ status: 'active' }).then(res => {
+      const fresh = res.members || [];
+      State.setMemberCache(fresh);
+      _allMembers = fresh;
+      _populateMcFilters(fresh);
+      renderMemberList();
+      showToast('資料已更新', 'info', 2000);
+      hideBgLoading();
+    }).catch(() => hideBgLoading());
+  } else {
+    showBgLoading();
+    try {
+      const res = await API.getMembers({ status: 'active' });
+      _allMembers = res.members || [];
+      State.setMemberCache(_allMembers);
+      _populateMcFilters(_allMembers);
+      renderMemberList();
+    } catch (e) {
+      const listEl = document.getElementById('mc-member-list');
+      if (listEl) listEl.innerHTML = `<div class="p-6 text-center text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${e.message}</div>`;
+    } finally {
+      hideBgLoading();
+    }
   }
+}
+
+function _populateMcFilters(members) {
+  const units = [...new Set(members.map(m => m.unit).filter(Boolean))].sort();
+  const unitSel = document.getElementById('mc-filter-unit');
+  if (unitSel) {
+    unitSel.innerHTML = '<option value="">所有區別</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
+  }
+  const countEl = document.getElementById('mc-count');
+  if (countEl) countEl.textContent = `共 ${members.length} 位`;
 }
 
 function renderMemberList() {
@@ -420,7 +634,7 @@ function filterMemberList() { renderMemberList(); }
 
 async function submitCheckins() {
   const schedule = State.getSchedule();
-  if (!schedule?.verify) { showToast('請先設定驗證密碼', 'error'); return; }
+  if (!schedule) { showToast('請先設定班程', 'error'); return; }
   if (_mcChecked.size === 0) return;
   const records = [..._mcChecked].map(id => {
     const m = _allMembers.find(x => x.id === id);
@@ -428,7 +642,7 @@ async function submitCheckins() {
   });
   showLoading(`批次報到 ${records.length} 位…`);
   try {
-    const res = await API.checkinManualBatch(schedule.verify, records, schedule.attendanceMode || '實體');
+    const res = await API.checkinManualBatch(getVerify(), records, schedule.attendanceMode || '實體');
     hideLoading();
     showToast(res.message || `已為 ${records.length} 位班員報到`, 'success');
     records.forEach(r => {
@@ -446,10 +660,10 @@ async function submitTempCheckin() {
   const name = document.getElementById('temp-name')?.value.trim();
   if (!name) { showToast('請輸入姓名', 'error'); return; }
   const schedule = State.getSchedule();
-  if (!schedule?.verify) { showToast('請先設定班程', 'error'); return; }
+  if (!schedule) { showToast('請先設定班程', 'error'); return; }
   showLoading('臨時報到...');
   try {
-    const res = await API.checkinTemp(name, schedule.verify, schedule.classCode, schedule.attendanceMode || '實體');
+    const res = await API.checkinTemp(name, getVerify(), schedule.classCode, schedule.attendanceMode || '實體');
     hideLoading();
     showToast(res.message || '臨時報到成功', 'success');
     const nameEl = document.getElementById('temp-name');
@@ -468,24 +682,38 @@ function toggleLargeText() {
 // ── QUICK SEARCH ──────────────────────────────────────────────────────────────
 Router.register('quick-search', async () => {
   _qsActiveFilters = {};
-  let members = State.getMemberCache();
-  if (!members) {
-    try {
-      const res = await API.getMembers({ status: 'active' });
-      members = res.members || [];
-      State.setMemberCache(members);
-    } catch {}
-  }
-  if (members) {
+
+  function populateQsFilters(members) {
     const units = [...new Set(members.map(m => m.unit).filter(Boolean))].sort();
-    const classes = [...new Set(members.map(m => m.class).filter(Boolean))].sort();
-    ['qs-adv-unit'].forEach(id => {
-      const sel = document.getElementById(id);
-      if (sel) sel.innerHTML = '<option value="">所有區別</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
-    });
+    const classes = [...new Set(members.flatMap(m => (m.class || '').split(',').map(c => c.trim()).filter(Boolean)))].sort();
+    const unitSel = document.getElementById('qs-adv-unit');
+    if (unitSel) unitSel.innerHTML = '<option value="">所有區別</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
     const classSel = document.getElementById('qs-adv-class');
     if (classSel) classSel.innerHTML = '<option value="">所有班別</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join('');
   }
+
+  const cached = State.getMemberCache();
+  if (cached) {
+    populateQsFilters(cached);
+    showBgLoading();
+    API.getMembers({ status: 'active' }).then(res => {
+      const fresh = res.members || [];
+      State.setMemberCache(fresh);
+      populateQsFilters(fresh);
+      hideBgLoading();
+    }).catch(() => hideBgLoading());
+  } else {
+    showBgLoading();
+    try {
+      const res = await API.getMembers({ status: 'active' });
+      const members = res.members || [];
+      State.setMemberCache(members);
+      populateQsFilters(members);
+    } catch {} finally {
+      hideBgLoading();
+    }
+  }
+
   const schedule = State.getSchedule();
   if (schedule?.date && Object.keys(_currentAttendance).length === 0) {
     try {
@@ -604,25 +832,45 @@ function removeQsFilter(key) {
 // ── MEMBER LIST ───────────────────────────────────────────────────────────────
 Router.register('member-list', async () => {
   _mlViewMode = 'list';
-  let members = State.getMemberCache();
-  if (!members) {
+
+  function populateMlFilters(members) {
+    const units   = [...new Set(members.map(m => m.unit).filter(Boolean))].sort();
+    const classes = [...new Set(members.flatMap(m => (m.class || '').split(',').map(c => c.trim()).filter(Boolean)))].sort();
+    const unitSel  = document.getElementById('ml-unit');
+    const classSel = document.getElementById('ml-class');
+    if (unitSel)  unitSel.innerHTML  = '<option value="">所有區別</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
+    if (classSel) classSel.innerHTML = '<option value="">所有班別</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
+  const cached = State.getMemberCache();
+  if (cached) {
+    _allMembers = cached;
+    populateMlFilters(cached);
+    filterMemberListView();
+    showBgLoading();
+    API.getMembers({ status: 'active' }).then(res => {
+      const fresh = res.members || [];
+      State.setMemberCache(fresh);
+      _allMembers = fresh;
+      populateMlFilters(fresh);
+      filterMemberListView();
+      showToast('資料已更新', 'info', 2000);
+      hideBgLoading();
+    }).catch(() => hideBgLoading());
+  } else {
+    showBgLoading();
     try {
       const res = await API.getMembers({ status: 'active' });
-      members = res.members || [];
-      State.setMemberCache(members);
+      _allMembers = res.members || [];
+      State.setMemberCache(_allMembers);
+      populateMlFilters(_allMembers);
+      filterMemberListView();
     } catch (e) {
       document.getElementById('ml-list').innerHTML = `<div class="card p-8 text-center text-red-500">${e.message}</div>`;
-      return;
+    } finally {
+      hideBgLoading();
     }
   }
-  _allMembers = members;
-  const units   = [...new Set(members.map(m => m.unit).filter(Boolean))].sort();
-  const classes = [...new Set(members.map(m => m.class).filter(Boolean))].sort();
-  const unitSel  = document.getElementById('ml-unit');
-  const classSel = document.getElementById('ml-class');
-  if (unitSel)  unitSel.innerHTML  = '<option value="">所有區別</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
-  if (classSel) classSel.innerHTML = '<option value="">所有班別</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join('');
-  filterMemberListView();
 });
 
 function setMlView(mode) {
@@ -767,10 +1015,10 @@ async function checkinThisMember() {
   const id = btn.dataset.memberId;
   const name = btn.dataset.memberName;
   const schedule = State.getSchedule();
-  if (!schedule?.verify) { showToast('請先設定班程', 'error'); return; }
+  if (!schedule) { showToast('請先設定班程', 'error'); return; }
   showLoading();
   try {
-    await API.checkin(id, name, schedule.verify, schedule.classCode, schedule.attendanceMode || '實體');
+    await API.checkin(id, name, getVerify(), schedule.classCode, schedule.attendanceMode || '實體');
     hideLoading();
     showToast(`${name} 報到成功`, 'success');
     btn.classList.add('hidden');
@@ -783,27 +1031,43 @@ async function checkinThisMember() {
 
 // ── CLASS VIEW ────────────────────────────────────────────────────────────────
 Router.register('class-view', async () => {
-  let members = State.getMemberCache();
-  if (!members) {
+  const cached = State.getMemberCache();
+  if (cached) {
+    _allMembers = cached;
+    renderClassView(cached);
+    showBgLoading();
+    API.getMembers({ status: 'active' }).then(res => {
+      const fresh = res.members || [];
+      State.setMemberCache(fresh);
+      _allMembers = fresh;
+      renderClassView(fresh);
+      showToast('資料已更新', 'info', 2000);
+      hideBgLoading();
+    }).catch(() => hideBgLoading());
+  } else {
+    showBgLoading();
     try {
       const res = await API.getMembers({ status: 'active' });
-      members = res.members || [];
-      State.setMemberCache(members);
+      _allMembers = res.members || [];
+      State.setMemberCache(_allMembers);
+      renderClassView(_allMembers);
     } catch (e) {
       document.getElementById('cv-class-list').innerHTML = `<div class="card p-8 text-center text-red-500">${e.message}</div>`;
-      return;
+    } finally {
+      hideBgLoading();
     }
   }
-  _allMembers = members;
-  renderClassView(members);
 });
 
 function renderClassView(members) {
   const byClass = {};
   members.forEach(m => {
-    const cls = m.class || '未分班';
-    if (!byClass[cls]) byClass[cls] = [];
-    byClass[cls].push(m);
+    const classes = (m.class || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (classes.length === 0) classes.push('未分班');
+    classes.forEach(cls => {
+      if (!byClass[cls]) byClass[cls] = [];
+      byClass[cls].push(m);
+    });
   });
 
   const listEl = document.getElementById('cv-class-list');
@@ -967,58 +1231,105 @@ function applySchedule(s) {
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
-Router.register('settings', () => {
+let _settingsFutureSchedules = [];
+
+Router.register('settings', async () => {
   const schedule = State.getSchedule() || {};
   const settings = State.getSettings();
-
-  if (schedule.date)      document.getElementById('st-date').value = schedule.date;
-  if (schedule.classCode) document.getElementById('st-classcode').value = schedule.classCode;
-  if (schedule.className) document.getElementById('st-classname').value = schedule.className;
-  if (schedule.verify)    document.getElementById('st-verify').value = schedule.verify;
-
-  _selectedAttendanceMode = schedule.attendanceMode || settings.attendanceMode || '實體';
-  updateModeButtons();
 
   // Large text toggle
   const toggle = document.getElementById('toggle-large-text');
   if (toggle) toggle.classList.toggle('on', !!settings.largeText);
 
   renderSettingsDisplay();
+
+  // Load future schedules into dropdown
+  const select = document.getElementById('st-schedule-select');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- 載入中... --</option>';
+  showBgLoading();
+  try {
+    const schedules = await API.getSchedules('future');
+    _settingsFutureSchedules = Array.isArray(schedules) ? schedules : [];
+    hideBgLoading();
+
+    if (_settingsFutureSchedules.length === 0) {
+      select.innerHTML = '<option value="">-- 無未來班程 --</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">-- 請選擇班程 --</option>' +
+      _settingsFutureSchedules.map((s, i) =>
+        `<option value="${i}">${s.dateFormatted || s.date} ${s.className || ''}</option>`
+      ).join('');
+
+    // Pre-select if current schedule matches
+    if (schedule.date && schedule.classCode) {
+      const idx = _settingsFutureSchedules.findIndex(
+        s => s.date === schedule.date && s.classCode === schedule.classCode
+      );
+      if (idx >= 0) {
+        select.value = String(idx);
+        onScheduleSelectChange();
+        const verifyEl = document.getElementById('st-verify');
+        if (verifyEl) verifyEl.value = schedule.verify || '';
+      }
+    }
+  } catch (e) {
+    hideBgLoading();
+    select.innerHTML = '<option value="">-- 載入失敗，請重試 --</option>';
+    showToast('載入班程失敗: ' + e.message, 'error');
+  }
 });
 
-function setMode(mode) {
-  _selectedAttendanceMode = mode;
-  updateModeButtons();
-}
+function onScheduleSelectChange() {
+  const select = document.getElementById('st-schedule-select');
+  const detailEl = document.getElementById('st-schedule-detail');
+  if (!select || !detailEl) return;
 
-function updateModeButtons() {
-  const phys   = document.getElementById('btn-mode-physical');
-  const online = document.getElementById('btn-mode-online');
-  if (!phys) return;
-  const activeClass = 'flex-1 py-2.5 text-sm rounded-xl border-2 border-brand bg-brand text-white font-semibold';
-  const inactiveClass = 'flex-1 py-2.5 text-sm rounded-xl border-2 border-gray-200 text-gray-600 font-semibold';
-  phys.className   = `${_selectedAttendanceMode === '實體' ? activeClass : inactiveClass}`;
-  online.className = `${_selectedAttendanceMode === '線上' ? activeClass : inactiveClass}`;
-  // Re-add icons since className replaces innerHTML
-  phys.innerHTML   = `<i class="fa-solid fa-person-walking mr-1"></i>實體`;
-  online.innerHTML = `<i class="fa-solid fa-video mr-1"></i>線上`;
-}
-
-function saveSettings() {
-  const date      = document.getElementById('st-date')?.value;
-  const classCode = document.getElementById('st-classcode')?.value.trim();
-  const className = document.getElementById('st-classname')?.value.trim();
-  const verify    = document.getElementById('st-verify')?.value.trim();
-
-  if (!date || !classCode || !verify) {
-    showToast('請填寫日期、班別代碼和驗證密碼', 'error');
+  const idx = parseInt(select.value, 10);
+  if (isNaN(idx) || !_settingsFutureSchedules[idx]) {
+    detailEl.classList.add('hidden');
     return;
   }
 
-  State.setSchedule({ date, classCode, className, verify, attendanceMode: _selectedAttendanceMode });
-  State.updateSettings({ attendanceMode: _selectedAttendanceMode });
+  const s = _settingsFutureSchedules[idx];
+  detailEl.classList.remove('hidden');
+  document.getElementById('st-detail-date').textContent = s.dateFormatted || s.date;
+  document.getElementById('st-detail-name').textContent = `${s.className || ''} (${s.classCode || '-'})`;
+  document.getElementById('st-detail-mode').textContent = s.attendanceMode || '實體';
+}
+
+function autoFillVerify() {
+  const select = document.getElementById('st-schedule-select');
+  const idx = parseInt(select?.value, 10);
+  const s = _settingsFutureSchedules[idx];
+  const verifyEl = document.getElementById('st-verify');
+  if (verifyEl && s) verifyEl.value = s.verify || '';
+}
+
+function saveSettings() {
+  const select = document.getElementById('st-schedule-select');
+  const idx = parseInt(select?.value, 10);
+
+  if (isNaN(idx) || !_settingsFutureSchedules[idx]) {
+    showToast('請先選擇一個班程', 'error');
+    return;
+  }
+
+  const s = _settingsFutureSchedules[idx];
+  const verify = document.getElementById('st-verify')?.value.trim() || '';
+
+  State.setSchedule({
+    date: s.date,
+    classCode: s.classCode,
+    className: s.className,
+    attendanceMode: s.attendanceMode || '實體',
+    verify,
+  });
+  State.updateSettings({ attendanceMode: s.attendanceMode || '實體' });
   _currentAttendance = {};
-  State.clearMemberCache();
   updateScheduleDisplay();
   showToast('設定已儲存 ✓', 'success');
   renderSettingsDisplay();
@@ -1045,26 +1356,6 @@ function renderSettingsDisplay() {
     </div>`).join('');
 }
 
-async function fetchActiveSchedule() {
-  showLoading('取得班程中...');
-  try {
-    const data = await API.getActiveSchedule();
-    hideLoading();
-    if (data.date) {
-      const fields = { 'st-date': data.date, 'st-classcode': data.classCode, 'st-classname': data.className, 'st-verify': data.verify };
-      Object.entries(fields).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el && val) el.value = val;
-      });
-      showToast('已自動填入班程資料', 'success');
-    } else {
-      showToast('目前無啟用班程', 'error');
-    }
-  } catch (e) {
-    hideLoading();
-    showToast('取得失敗: ' + e.message, 'error');
-  }
-}
 
 function toggleLargeTextSetting() {
   const settings = State.getSettings();
@@ -1145,8 +1436,8 @@ function initApp() {
   const hadParams = checkUrlParams();
 
   // Initial route
-  if (!State.hasSchedule()) {
-    Router.navigateTo('settings');
+  if (!State.isOnboarded()) {
+    Router.navigateTo('welcome');
   } else if (hadParams) {
     Router.navigateTo('settings');
   } else {
