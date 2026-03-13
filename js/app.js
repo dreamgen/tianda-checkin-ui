@@ -298,7 +298,7 @@ Router.register('dashboard', async () => {
   const today = new Date().toISOString().split('T')[0];
 
   // Future schedule — show info card only
-  if (schedule.date > today) {
+  if (new Date(schedule.date) > new Date(today)) {
     const futureCard = document.getElementById('dash-future-card');
     if (futureCard) futureCard.classList.remove('hidden');
     const infoEl = document.getElementById('dash-future-info');
