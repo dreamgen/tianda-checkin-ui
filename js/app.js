@@ -1216,8 +1216,8 @@ Router.register('attendance-stats', async () => {
     const all = await fetchSchedules('all');
     const today = new Date().toISOString().split('T')[0];
     _statsSchedules = (Array.isArray(all) ? all : [])
-      .filter(s => s.date <= today)
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .filter(s => new Date(s.date) <= new Date(today))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
     hideBgLoading();
 
     if (_statsSchedules.length === 0) {
