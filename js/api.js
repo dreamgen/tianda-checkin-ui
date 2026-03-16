@@ -5,23 +5,37 @@
 
 const API_BASE = 'https://script.google.com/macros/s/AKfycbwAIC1ZtWZVVtji1-dkozis8CFkyqx8m9h3_kP98wd53RzwSey634ZH98kWwESXXTMP/exec';
 
+// 飛行中請求去重：相同 read 請求共用同一個 Promise，避免重複打 API
+const _inflight = {};
+const _WRITE_ACTIONS = new Set(['checkin', 'checkinManualBatch', 'checkinTemp']);
+
 /**
- * 統一 API 呼叫函式
+ * 統一 API 呼叫函式（含飛行中請求去重）
  * @param {string} action - API action name
  * @param {Object} params - Additional parameters
  * @returns {Promise<Object>} API response
  */
 async function callAPI(action, params = {}) {
-  const body = JSON.stringify({ action, ...params });
-  const response = await fetch(API_BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
-  if (!data.success) throw new Error(data.error || '未知錯誤');
-  return data.data;
+  const isWrite = _WRITE_ACTIONS.has(action);
+  const key = isWrite ? null : action + '|' + JSON.stringify(params);
+
+  if (key && _inflight[key]) return _inflight[key];
+
+  const promise = (async () => {
+    const body = JSON.stringify({ action, ...params });
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '未知錯誤');
+    return data.data;
+  })().finally(() => { if (key) delete _inflight[key]; });
+
+  if (key) _inflight[key] = promise;
+  return promise;
 }
 
 // ── API 函式封裝 ──────────────────────────────────────────────────────────

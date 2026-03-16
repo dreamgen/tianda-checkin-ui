@@ -25,6 +25,24 @@ const SHEET_NAME = {
   SPECIAL_NOTES:      '特殊註記'
 };
 
+// ── Server-side Cache helpers (CacheService) ──────────────────────────────
+function withCache(key, ttlSeconds, fn) {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  const result = fn();
+  if (result && result.success) {
+    try { cache.put(key, JSON.stringify(result), ttlSeconds); } catch (e) {}
+  }
+  return result;
+}
+
+function invalidateAttCache(dateStr, scheduleNote) {
+  try {
+    CacheService.getScriptCache().remove('att_' + dateStr + '_' + (scheduleNote || ''));
+  } catch (e) {}
+}
+
 // 出席符號語義對照 (Raw symbol → English status)
 const STATUS_MAP = {
   '○': 'present',
@@ -137,7 +155,15 @@ function getNamedRangeValue(rangeName) {
  * status: "active"(預設) | "all"
  */
 function apiGetMembers(params) {
-  params = params || {};  // 防御：確保 params 不為 undefined
+  params = params || {};
+  const cacheKey = (params.status === 'active' && !params.unit && !params.class && !params.gender)
+    ? 'members_active'
+    : 'members_' + JSON.stringify(params);
+  return withCache(cacheKey, 300, () => _apiGetMembersImpl(params));
+}
+
+function _apiGetMembersImpl(params) {
+  params = params || {};
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME.MEMBERS);
@@ -246,6 +272,11 @@ function apiGetMemberById(params) {
  * @param {Object} params - { date: "yyyy/m/d", scheduleNote: "1"|"3", unit?, statusFilter? }
  */
 function apiGetAttendanceByDate(params) {
+  const cacheKey = 'att_' + (params.date || '') + '_' + (params.scheduleNote || params.classCode || '');
+  return withCache(cacheKey, 60, () => _apiGetAttendanceByDateImpl(params));
+}
+
+function _apiGetAttendanceByDateImpl(params) {
   try {
     if (!params.date) throw new Error('缺少必要參數: date');
 
@@ -448,6 +479,11 @@ function apiCheckin(params) {
       notes: params.notes || ''
     }]);
 
+    invalidateAttCache(
+      Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy/M/d'),
+      formatScheduleNote(rawNote, mode)
+    );
+
     return apiResponse(true, {
       message: `${params.name} 報到成功`,
       id: params.id,
@@ -494,6 +530,10 @@ function apiCheckinManualBatch(params) {
     }));
 
     writeToManualCheckin(records);
+
+    const todayStr = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy/M/d');
+    const notedNotes = [...new Set(records.map(r => formatScheduleNote(r.scheduleNote, r.attendanceMode)))];
+    notedNotes.forEach(n => invalidateAttCache(todayStr, n));
 
     return apiResponse(true, {
       message: `成功批次報到 ${records.length} 筆`,
@@ -547,6 +587,11 @@ function apiCheckinTemp(params) {
       notes: params.notes || '臨時報到'
     }]);
 
+    invalidateAttCache(
+      Utilities.formatDate(now, 'Asia/Taipei', 'yyyy/M/d'),
+      fullNote
+    );
+
     return apiResponse(true, {
       message: `臨時報到成功: ${params.name}`,
       tempId: tempId,
@@ -566,6 +611,11 @@ function apiCheckinTemp(params) {
 // API 7: getSchedules — 取得班程列表
 // ────────────────────────────────────────────────────────────────────
 function apiGetSchedules(params) {
+  const cacheKey = 'sched_' + (params.filter || 'all');
+  return withCache(cacheKey, 1800, () => _apiGetSchedulesImpl(params));
+}
+
+function _apiGetSchedulesImpl(params) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME.SCHEDULES);
@@ -741,6 +791,10 @@ function apiGetAttendanceStats(params) {
 // API 10: getUnits — 取得區別/單位清單
 // ────────────────────────────────────────────────────────────────────
 function apiGetUnits(params) {
+  return withCache('units_list', 1800, () => _apiGetUnitsImpl(params));
+}
+
+function _apiGetUnitsImpl(params) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME.COMMON_LIST);

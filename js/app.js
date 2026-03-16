@@ -1637,6 +1637,19 @@ function initApp() {
   });
 
   document.addEventListener('scheduleChanged', updateScheduleDisplay);
+
+  // Background preload: warm up caches so pages feel instant
+  setTimeout(preloadData, 200);
+}
+
+function preloadData() {
+  fetchSchedules('all').catch(() => {});
+  fetchSchedules('future').catch(() => {});
+  if (!State.getMemberCache()) {
+    API.getMembers({ status: 'active' })
+       .then(r => State.setMemberCache(Array.isArray(r) ? r : (r?.members || [])))
+       .catch(() => {});
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
