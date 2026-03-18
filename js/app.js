@@ -7,6 +7,10 @@ import { settingsView } from './views/settings.js';
 import { scannerView } from './views/scanner.js';
 import { manualCheckinView } from './views/manual-checkin.js';
 import { quickSearchView } from './views/quick-search.js';
+import { memberListView } from './views/member-list.js';
+import { classView } from './views/class-view.js';
+import { attendanceStatsView } from './views/attendance-stats.js';
+import { classScheduleView } from './views/class-schedule.js';
 
 // Register views
 router.register('dashboard', dashboardView);
@@ -14,6 +18,10 @@ router.register('settings', settingsView);
 router.register('scanner', scannerView);
 router.register('manual-checkin', manualCheckinView);
 router.register('quick-search', quickSearchView);
+router.register('member-list', memberListView);
+router.register('class-view', classView);
+router.register('attendance-stats', attendanceStatsView);
+router.register('class-schedule', classScheduleView);
 
 // Global app entry point
 document.addEventListener('DOMContentLoaded', () => {
