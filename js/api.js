@@ -57,7 +57,26 @@ async function apiGetMemberById(id) {
 
 /** 取得指定日期出席名單 */
 async function apiGetAttendanceByDate(date, scheduleNote, params = {}) {
-  return callAPI('getAttendanceByDate', { date, scheduleNote, ...params });
+  if (window.FirebaseDB) {
+      const { db, ref, get, set } = window.FirebaseDB;
+      const attRef = ref(db, `attendance/${date}_${scheduleNote}`);
+      try {
+          const snapshot = await get(attRef);
+          if (snapshot.exists()) {
+              return { records: Object.values(snapshot.val()) };
+          }
+      } catch (e) { console.warn('Firebase read failed, fallback to GAS', e); }
+  }
+
+  const data = await callAPI('getAttendanceByDate', { date, scheduleNote, ...params });
+  
+  if (window.FirebaseDB && data && data.records) {
+      const { db, ref, set } = window.FirebaseDB;
+      const updates = {};
+      data.records.forEach(r => updates[r.id] = r);
+      set(ref(db, `attendance/${date}_${scheduleNote}`), updates).catch(e => console.warn('FB Cache err', e));
+  }
+  return data;
 }
 
 /** 取得出席統計 KPI */
@@ -65,18 +84,66 @@ async function apiGetAttendanceStats(date, scheduleNote) {
   return callAPI('getAttendanceStats', { date, scheduleNote });
 }
 
+// Helper to push to Firebase Sync Queue
+async function pushToFirebaseQueue(action, payload, date, classCode, localUpdates) {
+    if (!window.FirebaseDB) return false;
+    const { db, ref, set, update } = window.FirebaseDB;
+    
+    // 1. Update local UI cache immediately
+    if (localUpdates && localUpdates.length > 0) {
+        const cacheRef = ref(db, `attendance/${date}_${classCode}`);
+        const updatesObj = {};
+        localUpdates.forEach(u => {
+            updatesObj[u.id] = { ...u, timestamp: Date.now() };
+        });
+        await update(cacheRef, updatesObj).catch(e => console.warn('Local FB update err', e));
+    }
+    
+    // 2. Push to sync queue
+    const syncId = Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    await set(ref(db, `syncQueue/${syncId}`), {
+        action,
+        payload,
+        status: 'pending',
+        timestamp: Date.now()
+    });
+    return true;
+}
+
 /** 單筆 QR 掃描 / 手動報到 */
 async function apiCheckin(id, name, verify, classCode, attendanceMode = '實體', notes = '') {
+  const schedule = window.State ? window.State.getSchedule() : { date: new Date().toISOString().split('T')[0] };
+  const date = schedule.date;
+  
+  const localUpdate = [{ id, name, classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }];
+  const pushed = await pushToFirebaseQueue('checkin', { id, name, verify, classCode, attendanceMode, notes }, date, classCode, localUpdate);
+  if (pushed) return { success: true, message: '已記錄到本地快取' };
+
   return callAPI('checkin', { id, name, verify, classCode, attendanceMode, notes });
 }
 
 /** 批次簡易報到 */
 async function apiCheckinManualBatch(verify, records, attendanceMode = '實體') {
+  const schedule = window.State ? window.State.getSchedule() : { date: new Date().toISOString().split('T')[0], classCode: records[0]?.classCode };
+  const date = schedule.date;
+  
+  const localUpdates = records.map(r => ({ id: r.id, name: r.name, classCode: r.classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }));
+  const pushed = await pushToFirebaseQueue('checkinManualBatch', { verify, records, attendanceMode }, date, schedule.classCode, localUpdates);
+  if (pushed) return { success: true, message: '批次已記錄到本地快取' };
+
   return callAPI('checkinManualBatch', { verify, records, attendanceMode });
 }
 
 /** 臨時報到 */
 async function apiCheckinTemp(name, verify, classCode, attendanceMode = '實體', relatedId = '', notes = '') {
+  const schedule = window.State ? window.State.getSchedule() : { date: new Date().toISOString().split('T')[0] };
+  const date = schedule.date;
+  const tempId = 'TEMP_' + Date.now();
+  
+  const localUpdate = [{ id: tempId, name, classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }];
+  const pushed = await pushToFirebaseQueue('checkinTemp', { name, verify, classCode, attendanceMode, relatedId, notes }, date, classCode, localUpdate);
+  if (pushed) return { success: true, message: '臨時報到已記錄到本地快取' };
+
   return callAPI('checkinTemp', { name, verify, classCode, attendanceMode, relatedId, notes });
 }
 
