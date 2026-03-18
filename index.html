@@ -1,635 +1,457 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" class="antialiased text-gray-900 bg-gray-50">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#2F6783">
-  <meta name="description" content="天達大班報到系統 - 現代化報到管理 PWA">
-  <title>天達大班報到系統</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { DEFAULT: "#2F6783", light: "#3d8aa8", dark: "#1e4d63", xdark: "#12303f" },
-            success: "#10B97A", warning: "#FBBF24", danger: "#F0554C"
-          },
-          fontFamily: { sans: ["Inter","Noto Sans TC","sans-serif"] }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#2F6783">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./assets/icon-192.png">
+    
+    <title>天達大班報到系統</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#2F6783', dark: '#1D4D63', light: '#E0EDF5' },
+                        success: '#10B97A', warning: '#FBBF24', danger: '#F0554C', neutral: '#8F8F8F'
+                    }
+                }
+            }
         }
-      }
-    }
-  </script>
-  <style>
-    :root { --safe-bottom: env(safe-area-inset-bottom, 0px); }
-    html, body { height: 100%; font-family: "Inter","Noto Sans TC",sans-serif; }
-    body { background: #f0f4f8; overflow: hidden; }
-
-    /* App Shell */
-    #app-shell { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
-
-    /* Sidebar (desktop) */
-    #sidebar { width: 240px; background: linear-gradient(180deg,#2F6783 0%,#1e4d63 100%); color: white; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; }
-    @media(max-width:767px){ #sidebar { display:none; } }
-    .sidebar-brand { padding: 24px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.15); }
-    .sidebar-brand h1 { font-size: 1.1rem; font-weight: 700; line-height: 1.3; }
-    .sidebar-brand p { font-size: 0.75rem; opacity: .7; margin-top: 2px; }
-    .sidebar-nav { padding: 12px 0; flex: 1; }
-    .sidebar-item { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: rgba(255,255,255,.75); font-size: .875rem; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
-    .sidebar-item:hover { background: rgba(255,255,255,.1); color: white; }
-    .sidebar-item.active { background: rgba(255,255,255,.15); color: white; border-left-color: white; font-weight: 600; }
-    .sidebar-item i { width: 20px; text-align: center; font-size: 1rem; }
-    .sidebar-divider { height: 1px; background: rgba(255,255,255,.1); margin: 8px 20px; }
-
-    /* Main content area */
-    #main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-
-    /* Mobile Header */
-    #mobile-header { background: #2F6783; color: white; padding: 0 16px; height: 56px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
-    #mobile-header h2 { flex: 1; font-size: 1rem; font-weight: 600; }
-    #menu-btn { font-size: 1.25rem; cursor: pointer; padding: 8px; }
-    @media(min-width:768px){ #mobile-header { display: none; } }
-
-    /* Schedule badge in header */
-    #schedule-badge { font-size: .7rem; background: rgba(255,255,255,.2); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
-
-    /* App view container */
-    #app-view { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: calc(72px + var(--safe-bottom)); }
-    @media(min-width:768px){ #app-view { padding-bottom: 16px; } }
-    .view-container { animation: fadeIn .2s ease; }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
-
-    /* Bottom Nav (mobile) */
-    #bottom-nav { background: white; border-top: 1px solid #e5e7eb; display: flex; padding-bottom: var(--safe-bottom); flex-shrink: 0; box-shadow: 0 -2px 12px rgba(0,0,0,.08); }
-    @media(min-width:768px){ #bottom-nav { display: none; } }
-    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px; color: #9ca3af; font-size: .65rem; cursor: pointer; transition: color .15s; border: none; background: none; }
-    .nav-item.active { color: #2F6783; }
-    .nav-item.active i { font-weight: 900; }
-    .nav-item i { font-size: 1.25rem; }
-
-    /* Mobile sidebar overlay */
-    #mobile-sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }
-    #mobile-sidebar-panel { position:fixed; left:-280px; top:0; bottom:0; width:280px; background:linear-gradient(180deg,#2F6783 0%,#1e4d63 100%); z-index:50; transition:left .25s ease; overflow-y:auto; color:white; }
-    #mobile-sidebar-panel.open { left:0; }
-    #mobile-sidebar-overlay.open { display:block; }
-
-    /* Cards */
-    .card { background: white; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04); }
-    .card-header { padding: 16px 20px 12px; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 8px; }
-
-    /* KPI Cards */
-    .kpi-card { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; flex-direction: column; gap: 4px; }
-    .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1; }
-    .kpi-label { font-size: .75rem; color: #6b7280; }
-
-    /* Status badges */
-    .badge { display: inline-flex; align-items: center; font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
-    .badge-present { background: #d1fae5; color: #065f46; }
-    .badge-absent { background: #fee2e2; color: #991b1b; }
-    .badge-leave { background: #fef3c7; color: #92400e; }
-    .badge-late { background: #dbeafe; color: #1e40af; }
-    .badge-unknown { background: #f3f4f6; color: #6b7280; }
-
-    /* Member list items */
-    .member-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background .1s; }
-    .member-item:hover { background: #f9fafb; }
-    .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#2F6783,#3d8aa8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: .875rem; flex-shrink: 0; }
-
-    /* Search input */
-    .search-input { width: 100%; padding: 10px 16px 10px 40px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: .9rem; outline: none; background: white; transition: border-color .15s; }
-    .search-input:focus { border-color: #2F6783; box-shadow: 0 0 0 3px rgba(47,103,131,.1); }
-
-    /* Buttons */
-    .btn-primary { background: #2F6783; color: white; border: none; border-radius: 12px; padding: 12px 24px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 8px; justify-content: center; }
-    .btn-primary:hover { background: #1e4d63; }
-    .btn-primary:active { transform: scale(.97); }
-    .btn-secondary { background: #f3f4f6; color: #374151; border: none; border-radius: 12px; padding: 10px 20px; font-size: .875rem; font-weight: 500; cursor: pointer; transition: all .15s; }
-    .btn-danger { background: #fee2e2; color: #dc2626; border: none; border-radius: 12px; padding: 10px 20px; font-size: .875rem; font-weight: 500; cursor: pointer; }
-
-    /* Toast */
-    #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-    .toast { background: #1f2937; color: white; padding: 12px 20px; border-radius: 12px; font-size: .875rem; box-shadow: 0 4px 12px rgba(0,0,0,.2); animation: slideDown .25s ease; pointer-events: auto; display: flex; align-items: center; gap: 10px; }
-    .toast.success { background: #065f46; }
-    .toast.error { background: #991b1b; }
-    @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }
-
-    /* Loading overlay */
-    #loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.85); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
-    #loading-overlay.show { display: flex; }
-    .spinner { width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #2F6783; border-radius: 50%; animation: spin .7s linear infinite; }
-    @keyframes spin { to{transform:rotate(360deg)} }
-
-    /* Scanner */
-    #qr-video { width: 100%; height: 100%; object-fit: cover; }
-    .scanner-box { position: relative; width: 240px; height: 240px; margin: 0 auto; }
-    .scan-line { position: absolute; left: 10px; right: 10px; height: 2px; background: linear-gradient(90deg, transparent, #2F6783, transparent); animation: scanAnim 2s ease-in-out infinite; }
-    @keyframes scanAnim { 0%,100%{top:10px;opacity:.5} 50%{top:calc(100% - 12px);opacity:1} }
-    .corner-tl, .corner-tr, .corner-bl, .corner-br { position: absolute; width: 24px; height: 24px; border-color: #2F6783; border-style: solid; }
-    .corner-tl { top:0; left:0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-    .corner-tr { top:0; right:0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-    .corner-bl { bottom:0; left:0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
-    .corner-br { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-
-    /* Large text mode */
-    body.large-text .member-item { padding: 16px; }
-    body.large-text .member-item .text-sm { font-size: 1rem !important; }
-    body.large-text .member-item .text-base { font-size: 1.125rem !important; }
-    body.large-text .member-avatar { width: 48px; height: 48px; font-size: 1rem; }
-
-    /* Checkin checkbox */
-    .checkin-check { width: 28px; height: 28px; border-radius: 8px; border: 2px solid #d1d5db; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; flex-shrink: 0; }
-    .checkin-check.checked { background: #2F6783; border-color: #2F6783; color: white; }
-
-    /* Progress bar */
-    .progress-bar { height: 8px; background: #e5e7eb; border-radius: 99px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, #2F6783, #3d8aa8); border-radius: 99px; transition: width .5s ease; }
-
-    /* Section headers */
-    .section-title { font-size: .75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px 6px; }
-
-    /* Tabs */
-    .tab-bar { display: flex; border-bottom: 2px solid #e5e7eb; background: white; }
-    .tab-btn { flex: 1; padding: 12px 8px; font-size: .875rem; font-weight: 500; color: #6b7280; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
-    .tab-btn.active { color: #2F6783; border-bottom-color: #2F6783; font-weight: 600; }
-
-    /* Setup prompt */
-    .setup-prompt { background: linear-gradient(135deg,#2F6783,#1e4d63); color: white; border-radius: 16px; padding: 24px; margin: 16px; text-align: center; }
-  </style>
+    </script>
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- QR Scanner JS -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    </style>
 </head>
-<body>
+<body class="h-screen w-full overflow-hidden flex flex-col md:flex-row bg-[#F5F7FA]">
 
-<!-- Toast container -->
-<div id="toast-container"></div>
-
-<!-- Loading overlay -->
-<div id="loading-overlay">
-  <div class="spinner"></div>
-  <p class="text-gray-500 text-sm">載入中...</p>
-</div>
-
-<!-- Mobile Sidebar Overlay -->
-<div id="mobile-sidebar-overlay" onclick="closeMobileSidebar()"></div>
-<div id="mobile-sidebar-panel">
-  <div class="sidebar-brand">
-    <h1>天達大班報到系統</h1>
-    <p id="sidebar-schedule-info-mobile">尚未設定班次</p>
-  </div>
-  <nav class="sidebar-nav" id="mobile-sidebar-nav">
-    <!-- populated by JS -->
-  </nav>
-</div>
-
-<!-- App Shell -->
-<div id="app-shell">
-  <!-- Desktop Sidebar -->
-  <aside id="sidebar">
-    <div class="sidebar-brand">
-      <h1>天達大班<br>報到系統</h1>
-      <p id="sidebar-schedule-info">尚未設定班次</p>
-    </div>
-    <nav class="sidebar-nav" id="desktop-sidebar-nav">
-      <!-- populated by JS -->
-    </nav>
-    <div class="p-4 text-xs text-white/40 text-center">PWA v1.0</div>
-  </aside>
-
-  <!-- Main Area -->
-  <div id="main-area">
-    <!-- Mobile Header -->
-    <header id="mobile-header">
-      <button id="menu-btn" onclick="openMobileSidebar()" class="text-white">
-        <i class="fa-solid fa-bars"></i>
-      </button>
-      <div class="flex-1">
-        <h2 id="header-title">即時主頁</h2>
-      </div>
-      <div id="schedule-badge" class="hidden"></div>
-    </header>
-
-    <!-- View Container -->
-    <main id="app-view"></main>
-
-    <!-- Bottom Navigation -->
-    <nav id="bottom-nav">
-      <button class="nav-item active" data-tab="home" onclick="Router.navigateTo('dashboard')">
-        <i class="fa-solid fa-house"></i><span>主頁</span>
-      </button>
-      <button class="nav-item" data-tab="scanner" onclick="Router.navigateTo('scanner')">
-        <i class="fa-solid fa-qrcode"></i><span>掃描</span>
-      </button>
-      <button class="nav-item" data-tab="search" onclick="Router.navigateTo('quick-search')">
-        <i class="fa-solid fa-magnifying-glass"></i><span>查詢</span>
-      </button>
-      <button class="nav-item" data-tab="stats" onclick="Router.navigateTo('attendance-stats')">
-        <i class="fa-solid fa-chart-bar"></i><span>統計</span>
-      </button>
-      <button class="nav-item" data-tab="more" onclick="Router.navigateTo('settings')">
-        <i class="fa-solid fa-gear"></i><span>設定</span>
-      </button>
-    </nav>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- VIEW TEMPLATES                                                  -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-
-<!-- DASHBOARD -->
-<template id="tpl-dashboard">
-  <div class="p-4 space-y-4">
-    <div id="dash-setup-prompt" class="setup-prompt hidden">
-      <i class="fa-solid fa-triangle-exclamation text-3xl mb-3 opacity-80"></i>
-      <h3 class="font-bold text-lg mb-1">尚未設定班次</h3>
-      <p class="text-white/80 text-sm mb-4">請先設定本次課程資訊，才能使用報到功能</p>
-      <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full">
-        <i class="fa-solid fa-gear"></i> 前往工具設定
-      </button>
-    </div>
-    <div id="dash-schedule-card" class="card p-4 hidden">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-xs text-gray-500 mb-1">當次班程</p>
-          <h3 id="dash-schedule-title" class="text-lg font-bold text-gray-800"></h3>
-          <p id="dash-schedule-date" class="text-sm text-gray-500 mt-1"></p>
+    <!-- Desktop Sidebar -->
+    <aside class="hidden md:flex flex-col w-64 h-full bg-white border-r border-gray-200 flex-shrink-0 z-20">
+        <div class="p-4 border-b border-gray-100 flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold">天</div>
+            <h1 class="font-bold text-lg text-gray-800">大班報到系統</h1>
         </div>
-        <span id="dash-mode-badge" class="badge badge-present text-xs"></span>
-      </div>
-    </div>
-    <div id="dash-kpi-row" class="grid grid-cols-2 gap-3 hidden">
-      <div class="kpi-card border-l-4 border-brand">
-        <div id="kpi-present" class="kpi-value text-brand">--</div>
-        <div class="kpi-label">已報到</div>
-      </div>
-      <div class="kpi-card border-l-4 border-gray-300">
-        <div id="kpi-absent" class="kpi-value text-gray-500">--</div>
-        <div class="kpi-label">未報到</div>
-      </div>
-      <div class="kpi-card border-l-4 border-warning">
-        <div id="kpi-leave" class="kpi-value text-yellow-600">--</div>
-        <div class="kpi-label">請假</div>
-      </div>
-      <div class="kpi-card border-l-4 border-blue-400">
-        <div id="kpi-rate" class="kpi-value text-blue-600">--%</div>
-        <div class="kpi-label">出席率</div>
-      </div>
-    </div>
-    <div id="dash-progress-card" class="card p-4 hidden">
-      <div class="flex justify-between text-sm mb-2">
-        <span class="font-medium text-gray-700">出席進度</span>
-        <span id="dash-progress-text" class="text-gray-500"></span>
-      </div>
-      <div class="progress-bar">
-        <div id="dash-progress-fill" class="progress-fill" style="width:0%"></div>
-      </div>
-    </div>
-    <div class="card hidden" id="dash-actions">
-      <div class="card-header"><i class="fa-solid fa-bolt text-brand"></i> 快速操作</div>
-      <div class="p-4 grid grid-cols-2 gap-3">
-        <button onclick="Router.navigateTo('scanner')" class="btn-primary text-sm py-3">
-          <i class="fa-solid fa-qrcode"></i> QR 掃描
-        </button>
-        <button onclick="Router.navigateTo('manual-checkin')" class="btn-primary text-sm py-3">
-          <i class="fa-solid fa-list-check"></i> 簡易報到
-        </button>
-        <button onclick="Router.navigateTo('quick-search')" class="btn-secondary text-sm py-3">
-          <i class="fa-solid fa-magnifying-glass"></i> 快速查詢
-        </button>
-        <button onclick="Router.navigateTo('attendance-stats')" class="btn-secondary text-sm py-3">
-          <i class="fa-solid fa-chart-bar"></i> 出席統計
-        </button>
-      </div>
-    </div>
-    <div id="dash-by-unit" class="card hidden">
-      <div class="card-header"><i class="fa-solid fa-map-marker-alt text-brand"></i> 各區出席</div>
-      <div id="dash-unit-list" class="divide-y divide-gray-100"></div>
-    </div>
-    <p id="dash-updated" class="text-xs text-center text-gray-400"></p>
-  </div>
-</template>
-
-<!-- SCANNER -->
-<template id="tpl-scanner">
-  <div class="flex flex-col" style="min-height:calc(100vh - 130px)">
-    <div class="p-4 space-y-3">
-      <div id="scanner-setup-warn" class="hidden setup-prompt">
-        <i class="fa-solid fa-triangle-exclamation text-2xl mb-2"></i>
-        <p class="font-semibold mb-2">尚未設定班次</p>
-        <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full text-sm">前往設定</button>
-      </div>
-      <div id="scanner-main" class="hidden space-y-3">
-        <div class="card overflow-hidden">
-          <div class="relative bg-black" style="height:260px">
-            <div id="reader" style="width:100%;height:100%"></div>
-            <div class="scanner-box absolute" style="top:50%;left:50%;transform:translate(-50%,-50%)">
-              <div class="corner-tl"></div><div class="corner-tr"></div>
-              <div class="corner-bl"></div><div class="corner-br"></div>
-              <div class="scan-line"></div>
+        
+        <div class="flex-1 overflow-y-auto pt-4 pb-20 no-scrollbar px-3 space-y-1 nav-links">
+            <a href="#" class="sidebar-item nav-link active flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="dashboard">
+                <i class="fa-solid fa-house w-5 text-center"></i>
+                即時檢視 (主頁)
+            </a>
+            
+            <div class="pt-4 pb-1">
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">報到作業</p>
             </div>
-          </div>
-          <div class="p-3 flex gap-2">
-            <button id="btn-flashlight" class="btn-secondary flex-1 py-2 text-sm" onclick="toggleFlashlight()">
-              <i class="fa-solid fa-bolt"></i> 手電筒
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="scanner">
+                <i class="fa-solid fa-qrcode w-5 text-center"></i>
+                掃描名牌QRCODE
+            </a>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="manual-checkin">
+                <i class="fa-solid fa-list-check w-5 text-center"></i>
+                簡易報到
+            </a>
+            
+            <div class="pt-4 pb-1">
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">人員與資料</p>
+            </div>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="member-list">
+                <i class="fa-solid fa-users w-5 text-center"></i>
+                班員資料
+            </a>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="class-view">
+                <i class="fa-solid fa-sitemap w-5 text-center"></i>
+                分班檢視
+            </a>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="quick-search">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+                快速查詢
+            </a>
+            
+            <div class="pt-4 pb-1">
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">統計與報表</p>
+            </div>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="attendance-stats">
+                <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                出席統計
+            </a>
+            
+            <div class="pt-4 pb-1">
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">系統管理</p>
+            </div>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="class-schedule">
+                <i class="fa-regular fa-calendar-days w-5 text-center"></i>
+                班程資料
+            </a>
+            <a href="#" class="sidebar-item nav-link flex items-center gap-3 px-3 py-2 text-sm font-medium" data-target="settings">
+                <i class="fa-solid fa-gear w-5 text-center"></i>
+                工具設定
+            </a>
+        </div>
+        
+        <div class="p-4 border-t border-gray-100 mt-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                    <i class="fa-solid fa-user text-gray-500"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">系統招待員</p>
+                    <p class="text-xs text-gray-500 truncate" id="sidebar-role">Admin</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+        <!-- Mobile Header -->
+        <header class="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10 sticky top-0 justify-center">
+            <h1 id="header-title" class="text-lg font-bold text-gray-800 absolute left-1/2 transform -translate-x-1/2">報到系統</h1>
+            <div class="flex-1"></div>
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex justify-center items-center overflow-hidden text-gray-500 text-sm">
+                <i class="fa-solid fa-user"></i>
+            </div>
+        </header>
+
+        <!-- View Container -->
+        <main id="app-view" class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 w-full max-w-full relative">
+            <!-- Initial Loading State -->
+            <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4 text-primary"></i>
+                <p>載入中...</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-2 py-1 flex justify-between items-center z-50 pb-safe nav-links">
+        <a href="#" class="nav-item nav-link active flex flex-col items-center justify-center w-1/5 py-2" data-target="dashboard">
+            <i class="fa-solid fa-house mb-1 text-lg"></i>
+            <span class="text-[10px] font-medium">主頁</span>
+        </a>
+        <a href="#" class="nav-item nav-link flex flex-col items-center justify-center w-1/5 py-2" data-target="scanner">
+            <i class="fa-solid fa-qrcode mb-1 text-lg"></i>
+            <span class="text-[10px] font-medium">掃描</span>
+        </a>
+        <a href="#" class="nav-item nav-link flex flex-col items-center justify-center w-1/5 py-2" data-target="manual-checkin">
+            <i class="fa-solid fa-list-check mb-1 text-lg"></i>
+            <span class="text-[10px] font-medium">報到</span>
+        </a>
+        <a href="#" class="nav-item nav-link flex flex-col items-center justify-center w-1/5 py-2" data-target="quick-search">
+            <i class="fa-solid fa-magnifying-glass mb-1 text-lg"></i>
+            <span class="text-[10px] font-medium">查詢</span>
+        </a>
+        <a href="#" class="nav-item nav-link flex flex-col items-center justify-center w-1/5 py-2" data-target="settings">
+            <i class="fa-solid fa-ellipsis mb-1 text-lg"></i>
+            <span class="text-[10px] font-medium">更多</span>
+        </a>
+    </nav>
+
+    <!-- Templates for Views -->
+    <!-- (To be injected with HTML chunks for each page) -->
+    
+    <template id="tpl-dashboard">
+        <div class="fade-in max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 hidden md:block">即時報到檢視</h2>
+            <div class="card p-6 mb-6">
+                <!-- content to be implemented -->
+                <div id="dashboard-schedule-info" class="mb-6 card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-l-4 border-primary bg-blue-50">
+                    <div>
+                       <p class="text-sm text-gray-500 font-medium">當次報到班程</p>
+                       <h3 class="text-xl font-bold text-primary" id="db-schedule-title">載入中...</h3>
+                    </div>
+                    <button class="btn-primary px-4 py-2 rounded-md font-medium text-sm shadow-sm" onclick="router.navigate('settings')">
+                        更改設定
+                    </button>
+                </div>
+    
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="card p-4 text-center">
+                        <p class="text-xs text-gray-500 mb-1">報到總數</p>
+                        <p class="text-3xl font-bold text-gray-800" id="db-stat-present">-</p>
+                        <p class="text-xs text-gray-400 mt-1">/ 總應到 <span id="db-stat-total">-</span></p>
+                    </div>
+                    <div class="card p-4 text-center">
+                        <p class="text-xs text-gray-500 mb-1">出席率</p>
+                        <p class="text-3xl font-bold text-primary" id="db-stat-rate">-</p>
+                    </div>
+                    <div class="card p-4 text-center">
+                        <p class="text-xs text-gray-500 mb-1">乾道出席</p>
+                        <p class="text-3xl font-bold text-blue-600" id="db-stat-male">-</p>
+                    </div>
+                    <div class="card p-4 text-center">
+                        <p class="text-xs text-gray-500 mb-1">坤道出席</p>
+                        <p class="text-3xl font-bold text-pink-600" id="db-stat-female">-</p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button class="flex-1 card p-4 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors" onclick="router.navigate('scanner')">
+                        <div class="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </div>
+                        <span class="font-medium text-gray-800">掃描報到</span>
+                    </button>
+                    <button class="flex-1 card p-4 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors" onclick="router.navigate('manual-checkin')">
+                        <div class="w-12 h-12 rounded-full bg-success text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-list-check"></i>
+                        </div>
+                        <span class="font-medium text-gray-800">簡易報到</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-scanner">
+        <div class="fade-in max-w-lg mx-auto flex flex-col items-center h-full">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 hidden md:block">QR Code 報到</h2>
+            <div id="qr-reader" class="w-full max-w-sm rounded-lg overflow-hidden shadow-lg border-2 border-primary mb-4 bg-black"></div>
+            <div id="qr-result" class="w-full mb-4">
+                <div class="card p-4 text-center">
+                    <p class="text-gray-500 font-medium mb-2">等待掃描...</p>
+                    <i class="fa-solid fa-camera text-4xl text-gray-300"></i>
+                </div>
+            </div>
+            
+            <button id="btn-fallback-input" class="text-primary underline text-sm font-medium mt-auto mb-4">
+                無法掃描？改用手動輸入
             </button>
-            <button class="btn-secondary flex-1 py-2 text-sm" onclick="switchCamera()">
-              <i class="fa-solid fa-rotate"></i> 換鏡頭
+            
+            <!-- Fallback Input Dialog -->
+            <div id="dialog-fallback" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
+                    <h3 class="text-lg font-bold mb-4">手動輸入報到序號</h3>
+                    <input type="text" id="input-member-id" placeholder="輸入名牌下方 ID" class="w-full border border-gray-300 rounded-md px-3 py-2 mb-4 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-primary">
+                    <div class="flex gap-3">
+                        <button id="btn-cancel-fallback" class="flex-1 py-2 rounded-md font-medium text-gray-600 bg-gray-100">取消</button>
+                        <button id="btn-submit-fallback" class="flex-1 py-2 rounded-md font-medium text-white bg-primary">確定報到</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Confirmation Dialog -->
+            <div id="dialog-confirm" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm text-center">
+                    <div class="w-16 h-16 rounded-full bg-success text-white flex items-center justify-center text-3xl mx-auto mb-4">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-1" id="confirm-name">王大明</h3>
+                    <p class="text-gray-500 mb-6" id="confirm-class">ID: ...</p>
+                    <button id="btn-next-scan" class="w-full py-3 rounded-md font-medium text-white bg-primary">
+                        下一位
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-manual-checkin">
+        <div class="fade-in max-w-4xl mx-auto h-full flex flex-col pl-1 pr-1">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 hidden md:block">簡易報到</h2>
+            
+            <div class="card p-4 mb-4 z-10 md:relative">
+                <div class="flex gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-search text-gray-400"></i>
+                        </div>
+                        <input type="text" id="mc-search" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" placeholder="經理、名字或電話...">
+                    </div>
+                </div>
+                
+                <div class="flex overflow-x-auto no-scrollbar gap-2 pb-1" id="mc-filters">
+                    <button class="badge badge-primary flex-shrink-0 cursor-pointer shadow-sm filter-btn" data-filter="all">全部 (0)</button>
+                    <button class="badge badge-neutral flex-shrink-0 cursor-pointer shadow-sm filter-btn" data-filter="pending">未簽 (0)</button>
+                    <button class="badge badge-success flex-shrink-0 cursor-pointer shadow-sm filter-btn" data-filter="checked">已簽 (0)</button>
+                    <button class="badge badge-warning flex-shrink-0 cursor-pointer shadow-sm filter-btn" data-filter="temp">臨時 (0)</button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto pb-6" id="mc-list-container">
+                <div class="flex flex-col items-center justify-center h-full text-gray-400" id="mc-loading">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4 text-primary"></i>
+                    <p>載入名單中...</p>
+                </div>
+                <div class="space-y-3" id="mc-list">
+                    <!-- List items generated by JS -->
+                </div>
+            </div>
+            
+            <button id="btn-add-temp" class="fixed bottom-20 md:bottom-8 right-4 w-14 h-14 bg-warning text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40 hover:bg-yellow-500 transition-colors">
+                <i class="fa-solid fa-plus"></i>
             </button>
-          </div>
+            
+            <!-- Add Temp Member Dialog -->
+            <div id="dialog-add-temp" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-center items-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
+                    <h3 class="text-lg font-bold mb-4">新增臨時報到</h3>
+                    <div class="space-y-3 mb-4">
+                        <input type="text" id="temp-name" placeholder="姓名" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <input type="text" id="temp-unit" placeholder="區別 (選填)" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                    </div>
+                    <div class="flex gap-3">
+                        <button id="btn-cancel-temp" class="flex-1 py-2 rounded-md font-medium text-gray-600 bg-gray-100">取消</button>
+                        <button id="btn-submit-temp" class="flex-1 py-2 rounded-md font-medium text-gray-900 bg-warning">建立並報到</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div id="scanner-result" class="card p-4 hidden"></div>
-        <div class="card p-4">
-          <p class="text-sm font-medium text-gray-700 mb-2">手動輸入 ID</p>
-          <div class="flex gap-2">
-            <input type="text" id="manual-id-input" placeholder="輸入班員編號" class="search-input flex-1 pl-4">
-            <button onclick="manualLookup()" class="btn-primary px-4 py-2 text-sm">查詢</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
+    </template>
 
-<!-- MANUAL CHECKIN -->
-<template id="tpl-manual-checkin">
-  <div class="flex flex-col" style="min-height:calc(100vh - 130px)">
-    <div class="p-4 space-y-3">
-      <div class="card p-3">
-        <div class="flex gap-2 mb-2">
-          <div class="relative flex-1">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-            <input type="text" id="mc-search" placeholder="搜尋姓名…" class="search-input w-full" oninput="filterMemberList()">
-          </div>
-          <button onclick="toggleLargeText()" id="mc-large-btn" class="btn-secondary px-3 py-2 text-sm" title="大字版">
-            <i class="fa-solid fa-text-height"></i>
-          </button>
+    <template id="tpl-quick-search">
+        <div class="fade-in max-w-4xl mx-auto h-full flex flex-col pl-1 pr-1">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 hidden md:block">快速查詢</h2>
+            
+            <div class="card p-4 mb-4 z-10 sticky top-0 md:relative">
+                <div class="relative w-full">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                    </div>
+                    <input type="text" id="qs-search" class="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary shadow-sm text-lg" placeholder="輸入姓名快速尋找...">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <button id="qs-clear" class="text-gray-400 hover:text-gray-600 hidden">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto pb-4" id="qs-results-container">
+                <div class="flex flex-col items-center justify-center h-40 text-gray-400" id="qs-empty-state">
+                    <i class="fa-solid fa-keyboard text-4xl mb-4 text-gray-300"></i>
+                    <p>請輸入關鍵字開始查詢</p>
+                </div>
+                <!-- 查詢結果 -->
+                <div class="space-y-3 hidden" id="qs-results">
+                </div>
+            </div>
+            
+            <!-- Bottom Sheet / Dialog for individual member detail -->
+            <div id="dialog-member-detail" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end md:items-center justify-center">
+                <div class="bg-white rounded-t-2xl md:rounded-xl shadow-2xl w-full md:max-w-md mt-auto md:mt-0 max-h-[90vh] flex flex-col transform transition-transform duration-300 translate-y-0">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white rounded-t-2xl md:rounded-xl z-10">
+                        <h3 class="text-lg font-bold">人員詳細資料</h3>
+                        <button id="btn-close-detail" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto pb-8" id="qs-detail-content">
+                        <!-- detail injected here -->
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="flex gap-2 flex-wrap">
-          <select id="mc-filter-unit" onchange="filterMemberList()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
-            <option value="">所有區別</option>
-          </select>
-          <select id="mc-filter-status" onchange="filterMemberList()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
-            <option value="">所有狀態</option>
-            <option value="unchecked">未報到</option>
-            <option value="checked">已報到</option>
-            <option value="leave">請假</option>
-          </select>
-        </div>
-      </div>
-      <div class="flex justify-between items-center px-1">
-        <p id="mc-count" class="text-sm text-gray-500"></p>
-        <div class="flex gap-2 items-center">
-          <span id="mc-selected-count" class="text-sm font-medium text-brand hidden"></span>
-          <button id="mc-submit-btn" onclick="submitCheckins()" class="btn-primary text-sm px-4 py-2 hidden">
-            <i class="fa-solid fa-paper-plane"></i> 送出報到
-          </button>
-        </div>
-      </div>
-      <div id="mc-member-list" class="card divide-y divide-gray-100">
-        <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
-      </div>
-      <div class="card p-3">
-        <p class="text-sm font-medium text-gray-700 mb-2"><i class="fa-solid fa-user-plus text-brand"></i> 臨時報到</p>
-        <div class="flex gap-2">
-          <input type="text" id="temp-name" placeholder="臨時來賓姓名" class="search-input flex-1 pl-4">
-          <button onclick="submitTempCheckin()" class="btn-primary px-4 text-sm">報到</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
+    </template>
 
-<!-- QUICK SEARCH -->
-<template id="tpl-quick-search">
-  <div class="p-4 space-y-3">
-    <div class="relative">
-      <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-      <input type="text" id="qs-input" placeholder="輸入姓名或編號搜尋…" class="search-input w-full text-base"
-        oninput="quickSearch(this.value)" autofocus>
-    </div>
-    <div id="qs-filters" class="flex gap-2 flex-wrap">
-      <select id="qs-filter-unit" onchange="quickSearch(document.getElementById('qs-input').value)" class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
-        <option value="">所有區別</option>
-      </select>
-      <select id="qs-filter-status" onchange="quickSearch(document.getElementById('qs-input').value)" class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
-        <option value="">所有狀態</option>
-        <option value="present">已報到</option>
-        <option value="absent">未報到</option>
-        <option value="leave">請假</option>
-      </select>
-    </div>
-    <div id="qs-results" class="card divide-y divide-gray-100">
-      <div class="p-8 text-center text-gray-400"><i class="fa-solid fa-magnifying-glass text-3xl mb-2 block opacity-30"></i>輸入姓名開始搜尋</div>
-    </div>
-  </div>
-</template>
+    <template id="tpl-settings">
+        <div class="fade-in max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 hidden md:block">工具設定</h2>
+            
+            <div class="card p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4 border-b pb-2">當次班程設定</h3>
+                <form id="settings-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">班程日期</label>
+                        <input type="date" id="setting-date" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">出席模式</label>
+                        <select id="setting-mode" class="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="實體">實體</option>
+                            <option value="線上">線上</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">班別代碼 (例: 1)</label>
+                        <input type="text" id="setting-class" placeholder="1" class="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">報到驗證碼</label>
+                        <input type="text" id="setting-verify" placeholder="例如: 已驗證" class="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    
+                    <div class="pt-4 flex justify-end">
+                        <button type="submit" id="btn-save-settings" class="btn-primary px-6 py-2 rounded-md font-medium flex items-center gap-2">
+                            <i class="fa-solid fa-save"></i> 儲存設定
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="card p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4 border-b pb-2">檢視選項</h3>
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <p class="font-medium text-gray-800">大字版模式</p>
+                        <p class="text-sm text-gray-500">放大報表單與列表字體</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="setting-large-text" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </template>
 
-<!-- MEMBER LIST -->
-<template id="tpl-member-list">
-  <div class="p-4 space-y-3">
-    <div class="relative">
-      <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-      <input type="text" id="ml-search" placeholder="搜尋班員…" class="search-input w-full" oninput="filterMemberListView()">
-    </div>
-    <div class="flex gap-2">
-      <select id="ml-unit" onchange="filterMemberListView()" class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white flex-1">
-        <option value="">所有區別</option>
-      </select>
-      <select id="ml-class" onchange="filterMemberListView()" class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white flex-1">
-        <option value="">所有班別</option>
-      </select>
-    </div>
-    <p id="ml-count" class="text-xs text-gray-500 px-1"></p>
-    <div id="ml-list" class="card divide-y divide-gray-100">
-      <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
-    </div>
-  </div>
-</template>
+    <template id="tpl-member-list">
+        <div class="fade-in max-w-4xl mx-auto h-full p-4 flex flex-col items-center justify-center text-gray-500">
+            <i class="fa-solid fa-users text-5xl mb-4 text-gray-300"></i>
+            <h2 class="text-xl font-bold mb-2 text-gray-700">班員資料 (功能建置中)</h2>
+            <p>即將支援直接管理與新增班員資料功能。</p>
+        </div>
+    </template>
+    
+    <template id="tpl-class-view">
+        <div class="fade-in max-w-4xl mx-auto h-full p-4 flex flex-col items-center justify-center text-gray-500">
+            <i class="fa-solid fa-sitemap text-5xl mb-4 text-gray-300"></i>
+            <h2 class="text-xl font-bold mb-2 text-gray-700">分班檢視 (功能建置中)</h2>
+            <p>即將支援各班點名單與班長管理功能。</p>
+        </div>
+    </template>
+    
+    <template id="tpl-attendance-stats">
+        <div class="fade-in max-w-4xl mx-auto h-full p-4 flex flex-col items-center justify-center text-gray-500">
+            <i class="fa-solid fa-chart-pie text-5xl mb-4 text-gray-300"></i>
+            <h2 class="text-xl font-bold mb-2 text-gray-700">出席統計報表 (功能建置中)</h2>
+            <p>即將支援長條圖與各區別詳細出席率報表匯出。</p>
+        </div>
+    </template>
+    
+    <template id="tpl-class-schedule">
+        <div class="fade-in max-w-4xl mx-auto h-full p-4 flex flex-col items-center justify-center text-gray-500">
+            <i class="fa-regular fa-calendar-days text-5xl mb-4 text-gray-300"></i>
+            <h2 class="text-xl font-bold mb-2 text-gray-700">班程資料 (功能建置中)</h2>
+            <p>即將支援檢視歷史班程與未來排定的班程資訊。</p>
+        </div>
+    </template>
 
-<!-- MEMBER DETAIL -->
-<template id="tpl-member-detail">
-  <div>
-    <div id="md-header" class="bg-gradient-to-b from-brand to-brand-dark text-white p-6 text-center">
-      <div id="md-avatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold mx-auto mb-3"></div>
-      <h2 id="md-name" class="text-2xl font-bold"></h2>
-      <p id="md-id" class="text-white/70 text-sm mt-1"></p>
-      <div class="flex justify-center gap-4 mt-4 text-sm">
-        <div><div id="md-unit" class="font-semibold"></div><div class="text-white/60 text-xs">區別</div></div>
-        <div class="w-px bg-white/20"></div>
-        <div><div id="md-class" class="font-semibold"></div><div class="text-white/60 text-xs">班級</div></div>
-        <div class="w-px bg-white/20"></div>
-        <div><div id="md-gender" class="font-semibold"></div><div class="text-white/60 text-xs">乾坤</div></div>
-      </div>
-    </div>
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab-target="md-basic" onclick="switchMdTab(this)">基本資料</button>
-      <button class="tab-btn" data-tab-target="md-history" onclick="switchMdTab(this)">出席歷程</button>
-    </div>
-    <div id="md-basic" class="p-4 space-y-3">
-      <div class="card divide-y divide-gray-100">
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">特殊註記</span><span id="md-note" class="text-sm font-medium"></span></div>
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">組別</span><span id="md-group" class="text-sm font-medium"></span></div>
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">QR Code</span>
-          <div id="md-qr-area"><a id="md-qr-link" href="#" target="_blank" class="text-brand text-sm underline">查看 QR Code</a></div>
-        </div>
-        <div class="flex p-3 gap-4"><span class="text-gray-500 text-sm w-20">備註</span><span id="md-remarks" class="text-sm"></span></div>
-      </div>
-      <button id="md-checkin-btn" onclick="checkinThisMember()" class="btn-primary w-full hidden">
-        <i class="fa-solid fa-check-circle"></i> 為此班員報到
-      </button>
-    </div>
-    <div id="md-history" class="hidden p-4">
-      <div id="md-history-list" class="space-y-2">
-        <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
-      </div>
-    </div>
-  </div>
-</template>
-
-<!-- CLASS VIEW -->
-<template id="tpl-class-view">
-  <div class="p-4 space-y-3">
-    <div class="card p-3 flex gap-2">
-      <div class="relative flex-1">
-        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-        <input type="text" id="cv-search" placeholder="搜尋班員…" class="search-input" oninput="filterClassView()">
-      </div>
-    </div>
-    <div id="cv-class-list" class="space-y-3">
-      <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
-    </div>
-  </div>
-</template>
-
-<!-- ATTENDANCE STATS -->
-<template id="tpl-attendance-stats">
-  <div class="p-4 space-y-4">
-    <div id="stats-no-schedule" class="setup-prompt hidden">
-      <i class="fa-solid fa-chart-bar text-3xl mb-2"></i>
-      <p class="font-semibold">尚未設定班次</p>
-      <button onclick="Router.navigateTo('settings')" class="btn-primary bg-white text-brand w-full mt-3 text-sm">前往設定</button>
-    </div>
-    <div id="stats-main" class="hidden space-y-4">
-      <div class="grid grid-cols-2 gap-3">
-        <div class="kpi-card border-l-4 border-brand col-span-2">
-          <div class="flex justify-between items-start">
-            <div><div id="stats-present" class="kpi-value text-brand">--</div><div class="kpi-label">已出席</div></div>
-            <div class="text-right"><div id="stats-rate" class="text-2xl font-bold text-brand">--%</div><div class="kpi-label">出席率</div></div>
-          </div>
-          <div class="progress-bar mt-2"><div id="stats-fill" class="progress-fill" style="width:0%"></div></div>
-        </div>
-        <div class="kpi-card"><div id="stats-male" class="kpi-value text-blue-600">--</div><div class="kpi-label">乾 (男)</div></div>
-        <div class="kpi-card"><div id="stats-female" class="kpi-value text-pink-500">--</div><div class="kpi-label">坤 (女)</div></div>
-        <div class="kpi-card"><div id="stats-leave" class="kpi-value text-yellow-600">--</div><div class="kpi-label">請假</div></div>
-        <div class="kpi-card"><div id="stats-absent" class="kpi-value text-gray-500">--</div><div class="kpi-label">未報到</div></div>
-      </div>
-      <div class="card">
-        <div class="card-header"><i class="fa-solid fa-map-marker-alt text-brand"></i> 各區出席狀況</div>
-        <div id="stats-unit-list" class="divide-y divide-gray-100 p-4 space-y-3"></div>
-      </div>
-    </div>
-  </div>
-</template>
-
-<!-- CLASS SCHEDULE -->
-<template id="tpl-class-schedule">
-  <div class="p-4 space-y-3">
-    <div class="card p-3 flex gap-2">
-      <select id="cs-filter" onchange="loadScheduleView()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white flex-1">
-        <option value="all">所有班程</option>
-        <option value="future">未來班程</option>
-        <option value="past">過去班程</option>
-      </select>
-    </div>
-    <div id="cs-list" class="space-y-2">
-      <div class="p-8 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>
-    </div>
-  </div>
-</template>
-
-<!-- SETTINGS -->
-<template id="tpl-settings">
-  <div class="p-4 space-y-4">
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-calendar-check text-brand"></i> 班程設定</div>
-      <div class="p-4 space-y-3">
-        <div>
-          <label class="text-sm font-medium text-gray-700 block mb-1">從系統取得當前班程</label>
-          <button onclick="fetchActiveSchedule()" class="btn-secondary w-full text-sm py-2">
-            <i class="fa-solid fa-cloud-arrow-down"></i> 自動填入
-          </button>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">班程日期</label>
-            <input type="date" id="st-date" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">班別代碼</label>
-            <input type="text" id="st-classcode" placeholder="如：1" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">班別名稱 (顯示用)</label>
-          <input type="text" id="st-classname" placeholder="如：明理班" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">驗證密碼 (CheckPassToday)</label>
-          <input type="text" id="st-verify" placeholder="今日驗證密碼" class="w-full border border-gray-200 rounded-xl p-2 text-sm">
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">出勤方式</label>
-          <div class="flex gap-2">
-            <button id="btn-mode-physical" onclick="setMode('實體')" class="flex-1 py-2 text-sm rounded-xl border-2 border-brand bg-brand text-white font-medium">實體</button>
-            <button id="btn-mode-online" onclick="setMode('線上')" class="flex-1 py-2 text-sm rounded-xl border-2 border-gray-200 text-gray-600 font-medium">線上</button>
-          </div>
-        </div>
-        <button onclick="saveSettings()" class="btn-primary w-full">
-          <i class="fa-solid fa-floppy-disk"></i> 儲存設定
-        </button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-sliders text-brand"></i> 應用設定</div>
-      <div class="divide-y divide-gray-100">
-        <div class="flex items-center justify-between p-4">
-          <div><p class="text-sm font-medium text-gray-700">大字版模式</p><p class="text-xs text-gray-400">簡易報到列表放大字體</p></div>
-          <button id="toggle-large-text" onclick="toggleLargeTextSetting()" class="w-12 h-6 rounded-full bg-gray-200 relative transition-colors duration-200">
-            <div class="w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200"></div>
-          </button>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-circle-info text-brand"></i> 目前設定</div>
-      <div id="current-settings-display" class="p-4 space-y-2 text-sm text-gray-600"></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-database text-brand"></i> 資料管理</div>
-      <div class="p-4 flex gap-2">
-        <button onclick="State.clearMemberCache(); showToast('班員快取已清除','success')" class="btn-secondary text-sm flex-1">
-          <i class="fa-solid fa-trash-can"></i> 清除快取
-        </button>
-        <button onclick="Router.navigateTo('class-schedule')" class="btn-secondary text-sm flex-1">
-          <i class="fa-solid fa-calendar"></i> 班程資料
-        </button>
-      </div>
-    </div>
-  </div>
-</template>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS                                                         -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<script src="js/api.js"></script>
-<script src="js/state.js"></script>
-<script src="js/router.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="js/app.js"></script>
+    <!-- App Logic -->
+    <script type="module" src="js/app.js"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered!', reg.scope))
+                    .catch(err => console.error('SW registration failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>

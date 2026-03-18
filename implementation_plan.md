@@ -2,12 +2,19 @@
 
 ## 背景說明
 
-使用者已完成 Google Apps Script 的後端部署，並有完整的 Prototype UI 設計。目標是把 Prototype 轉換為**可實際使用的 PWA (Progressive Web App)**，連接已部署的 AppScript API，並托管於 GitHub Pages。
+使用者已完成 Google Apps Script 的後端部署，並有完整的 Prototype UI 設計。為了達到「毫秒級讀取」及「跨設備即時同步」的最佳體驗，系統架構將導入 **Firebase Realtime Database** 作為高速快取層。
 
-**API Base URL**:  
+目標是把 Prototype 轉換為**可實際使用的 PWA (Progressive Web App)**，並採用 **Firebase + GAS 觸發器混合架構**，前端托管於 GitHub Pages。
+
+### ⚡ 系統新架構 (GAS 觸發器法)
+1. **Frontend (PWA)**：PWA 前端直接監聽與寫入 Firebase，享受「毫秒級」的報到速度與「多台平板即時同步」的體驗。支援離線快取。
+2. **Cache Layer (Firebase Realtime Database)**：儲存當日啟用中的班程名單與報到狀態。
+3. **Backend & DB (GAS + Google Sheets)**：做為最終永久資料庫。GAS 透過設定「時間觸發器 (Time-driven Triggers)」，每 5~10 分鐘自動讀取 Firebase 中的報到異動，並定時回寫到 Google Sheets 存檔。
+
+**原有 GAS API Base URL (將用於資料初始化等操作)**:  
 `https://script.google.com/macros/s/AKfycbwAIC1ZtWZVVtji1-dkozis8CFkyqx8m9h3_kP98wd53RzwSey634ZH98kWwESXXTMP/exec`
 
-**可用 API (POST，JSON body)**:
+**可用 原有GAS API (部分將由 Firebase 取代)**:
 
 | action | 說明 | 關鍵參數 |
 |--------|------|---------|
@@ -77,11 +84,30 @@ PWA 安裝設定：
 
 #### [NEW] js/api.js
 
-AppScript API 服務層：
+AppScript API 與 Firebase 混合服務層：
 ```js
 const API_BASE = 'https://script.google.com/macros/s/.../exec';
 async function callAPI(action, params) { ... }
-// 封裝所有 11 個 API 函式
+// 封裝所有 API 函式，報到動作及即時監聽將直接讀寫 Firebase
+```
+
+---
+
+#### [NEW] js/firebase-config.js
+
+Firebase 初始化與快取資料庫設定：
+```js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, update, get } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBvVou318GT40HL7PbqeFRpPZfUa6YthYU",
+  databaseURL: "https://jczs-checkin-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId: "jczs-checkin"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getDatabase(app);
 ```
 
 ---
@@ -104,6 +130,26 @@ View 切換路由器：
 - 從 `<template>` clone 並注入 `#app-view`
 - 維護 browser history (pushState)
 - 每個 View 有 `onInit()` 生命週期 callback
+
+---
+
+### ☁️ 後端 Google Apps Script 實作
+
+---
+
+#### [NEW] AppScript/firebase-sync.gs
+
+處理與 Firebase 的雙向資料同步，設定每 5 或 10 分鐘的時間驅動觸發器：
+```js
+const FIREBASE_DB_URL = "https://jczs-checkin-default-rtdb.asia-southeast1.firebasedatabase.app/";
+const FIREBASE_SECRET = "UTS0dyPXR6KvikvKL732WNO7QmmCnoPBiybBFxXy";
+
+function syncFirebaseToSheets() {
+  // 1. 取得 Firebase 上的快取報到異動紀錄
+  // 2. 寫入到 Google Sheets 的「人工簽到表」或對應出席表
+  // 3. 標記 Firebase 上已處理的資料或直接清除
+}
+```
 
 ---
 

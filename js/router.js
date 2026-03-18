@@ -1,140 +1,51 @@
-/**
- * js/router.js - SPA 路由器
- * 管理 View 切換與生命週期
- */
+export const router = {
+    currentView: null,
+    routes: {},
 
-const VIEWS = {
-  'dashboard': {
-    title: '即時主頁',
-    navTab: 'home',
-    sidebarItem: 'dashboard',
-    init: null, // 由 views/dashboard.js 設定
-  },
-  'scanner': {
-    title: '掃描報到',
-    navTab: 'scanner',
-    sidebarItem: 'scanner',
-    init: null,
-  },
-  'manual-checkin': {
-    title: '簡易報到',
-    navTab: 'scanner',
-    sidebarItem: 'manual-checkin',
-    init: null,
-  },
-  'quick-search': {
-    title: '快速查詢',
-    navTab: 'search',
-    sidebarItem: 'quick-search',
-    init: null,
-  },
-  'member-list': {
-    title: '班員資料',
-    navTab: 'search',
-    sidebarItem: 'member-list',
-    init: null,
-  },
-  'member-detail': {
-    title: '班員詳細',
-    navTab: 'search',
-    sidebarItem: 'member-list',
-    init: null,
-  },
-  'class-view': {
-    title: '分班檢視',
-    navTab: 'search',
-    sidebarItem: 'class-view',
-    init: null,
-  },
-  'attendance-stats': {
-    title: '出席統計',
-    navTab: 'stats',
-    sidebarItem: 'attendance-stats',
-    init: null,
-  },
-  'class-schedule': {
-    title: '班程資料',
-    navTab: 'more',
-    sidebarItem: 'class-schedule',
-    init: null,
-  },
-  'settings': {
-    title: '工具設定',
-    navTab: 'more',
-    sidebarItem: 'settings',
-    init: null,
-  },
+    // Register a view logic module
+    register(name, module) {
+        this.routes[name] = module;
+    },
+
+    // Navigate to view template ID name (e.g., 'dashboard')
+    navigate(name, params = {}) {
+        const tplId = `tpl-${name}`;
+        if (!document.getElementById(tplId)) {
+            console.error(`Template ${tplId} not found! Fallback to dashboard.`);
+            name = 'dashboard';
+        }
+
+        const appView = document.getElementById('app-view');
+        const tpl = document.getElementById(`tpl-${name}`);
+        
+        if(appView && tpl) {
+            // Clone template content and replace
+            appView.innerHTML = '';
+            appView.appendChild(tpl.content.cloneNode(true));
+        }
+        
+        // Update sidebar/bottom navigation active states
+        document.querySelectorAll('.nav-link').forEach(el => {
+            el.classList.remove('active', 'text-primary');
+            if (el.dataset.target === name) el.classList.add('active', 'text-primary');
+        });
+
+        // Initialize view logic if registered
+        if (this.routes[name] && typeof this.routes[name].init === 'function') {
+            this.routes[name].init(params);
+        }
+        
+        this.currentView = name;
+
+        // Push to browser history stack
+        if (!params.replaceHistory) {
+            history.pushState({ view: name, ...params }, '', `#${name}`);
+        }
+    }
 };
 
-let _currentView = null;
-let _viewInitFns = {};
-let _memberDetailData = null; // 傳遞給 member-detail 的資料
-
-const Router = {
-  /** 註冊 View 初始化函式 */
-  register(viewName, initFn) {
-    _viewInitFns[viewName] = initFn;
-  },
-
-  /** 導航到指定 View */
-  navigateTo(viewName, params = {}) {
-    if (viewName === 'member-detail' && params.member) {
-      _memberDetailData = params.member;
+window.addEventListener('popstate', (event) => {
+    if (event.state && event.state.view) {
+        router.navigate(event.state.view, { replaceHistory: true });
     }
-
-    const viewConfig = VIEWS[viewName];
-    if (!viewConfig) {
-      console.error('Unknown view:', viewName);
-      return;
-    }
-
-    // 更新 header 標題
-    const headerTitle = document.getElementById('header-title');
-    if (headerTitle) headerTitle.textContent = viewConfig.title;
-
-    // 更新 desktop sidebar 活躍狀態
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.view === viewConfig.sidebarItem);
-    });
-
-    // 更新 bottom nav 活躍狀態
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.tab === viewConfig.navTab);
-    });
-
-    // 渲染 view template
-    const template = document.getElementById(`tpl-${viewName}`);
-    const container = document.getElementById('app-view');
-    if (!template || !container) {
-      console.error('Template not found:', `tpl-${viewName}`);
-      return;
-    }
-
-    container.innerHTML = '';
-    const clone = template.content.cloneNode(true);
-    const wrapper = document.createElement('div');
-    wrapper.className = 'view-container fade-in';
-    wrapper.appendChild(clone);
-    container.appendChild(wrapper);
-
-    _currentView = viewName;
-
-    // 執行 init 函式
-    const initFn = _viewInitFns[viewName];
-    if (initFn) {
-      try { initFn(params); } catch (e) { console.error(`View init error [${viewName}]:`, e); }
-    }
-
-    // 關閉 mobile sidebar（如果開著）
-    const mobileSidebar = document.getElementById('mobile-sidebar');
-    if (mobileSidebar) closeMobileSidebar();
-  },
-
-  /** 取得目前 View */
-  current() { return _currentView; },
-
-  /** 取得 member-detail 資料 */
-  getMemberDetailData() { return _memberDetailData; },
-};
-
-window.Router = Router;
+});

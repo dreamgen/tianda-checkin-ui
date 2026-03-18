@@ -1,102 +1,64 @@
-/**
- * js/state.js - 應用程式狀態管理
- * 使用 localStorage 持久化設定
- */
+// LocalStorage 持久化狀態管理
 
-const STATE_KEY = 'tianda_checkin_state';
-const SETTINGS_KEY = 'tianda_checkin_settings';
+const STORAGE_KEY_SCHEDULE = 'tianda_current_schedule';
+const STORAGE_KEY_SETTINGS = 'tianda_settings';
 
-const defaultState = {
-  currentSchedule: null, // { date, classCode, className, verify, attendanceMode, weekNumber }
-  currentView: 'dashboard',
-  memberCache: null,      // { data, timestamp }
-  units: [],
+export const state = {
+    // 當前班程資訊
+    currentSchedule: null,
+    // 系統設定
+    settings: {
+        largeText: false,
+        legacyQR: false,
+        theme: 'light'
+    },
+    
+    // 初始化從 LocalStorage 讀取
+    init() {
+        try {
+            const savedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
+            if (savedSchedule) {
+                this.currentSchedule = JSON.parse(savedSchedule);
+            }
+            
+            const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+            if (savedSettings) {
+                this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+            }
+        } catch (e) {
+            console.error('Failed to load state from localStorage', e);
+        }
+        
+        // 套用設定的 class
+        this.applySettingsToDOM();
+    },
+    
+    // 儲存當前班程設定
+    setSchedule(schedule) {
+        this.currentSchedule = schedule;
+        localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(schedule));
+    },
+    
+    // 更新設定
+    updateSettings(newSettings) {
+        this.settings = { ...this.settings, ...newSettings };
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(this.settings));
+        this.applySettingsToDOM();
+    },
+    
+    applySettingsToDOM() {
+        if (this.settings.largeText) {
+            document.documentElement.classList.add('text-lg'); // Tailwind large text base
+        } else {
+            document.documentElement.classList.remove('text-lg');
+        }
+    },
+
+    // 取得用於 API / Firebase 路徑的辨識碼 (e.g. "實體1")
+    getScheduleNote() {
+        if (!this.currentSchedule) return null;
+        return `${this.currentSchedule.attendanceMode}${this.currentSchedule.classCode || ''}`;
+    }
 };
 
-const defaultSettings = {
-  largeText: false,
-  legacyQR: true,
-  attendanceMode: '實體',
-};
-
-let _state = { ...defaultState };
-let _settings = { ...defaultSettings };
-
-function loadState() {
-  try {
-    const saved = localStorage.getItem(STATE_KEY);
-    if (saved) _state = { ...defaultState, ...JSON.parse(saved) };
-    const savedSettings = localStorage.getItem(SETTINGS_KEY);
-    if (savedSettings) _settings = { ...defaultSettings, ...JSON.parse(savedSettings) };
-  } catch (e) {
-    console.warn('Failed to load state:', e);
-  }
-}
-
-function saveState() {
-  try {
-    localStorage.setItem(STATE_KEY, JSON.stringify(_state));
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(_settings));
-  } catch (e) {
-    console.warn('Failed to save state:', e);
-  }
-}
-
-// ── Public API ─────────────────────────────────────────────────────────────
-
-const State = {
-  /** 取得當前班程設定 */
-  getSchedule() { return _state.currentSchedule; },
-
-  /** 設定當前班程 */
-  setSchedule(schedule) {
-    _state.currentSchedule = schedule;
-    saveState();
-    // 通知所有監聽者
-    document.dispatchEvent(new CustomEvent('scheduleChanged', { detail: schedule }));
-  },
-
-  /** 檢查是否已設定班程 */
-  hasSchedule() {
-    return !!(
-      _state.currentSchedule &&
-      _state.currentSchedule.date &&
-      _state.currentSchedule.classCode &&
-      _state.currentSchedule.verify
-    );
-  },
-
-  /** 取得設定 */
-  getSettings() { return { ..._settings }; },
-
-  /** 更新設定 */
-  updateSettings(partial) {
-    _settings = { ..._settings, ...partial };
-    saveState();
-    document.dispatchEvent(new CustomEvent('settingsChanged', { detail: _settings }));
-  },
-
-  /** 快取班員資料 (5分鐘有效) */
-  getMemberCache() {
-    if (!_state.memberCache) return null;
-    const age = Date.now() - _state.memberCache.timestamp;
-    if (age > 5 * 60 * 1000) return null; // 5 min TTL
-    return _state.memberCache.data;
-  },
-
-  setMemberCache(data) {
-    _state.memberCache = { data, timestamp: Date.now() };
-    // don't persist to localStorage (too large)
-  },
-
-  clearMemberCache() {
-    _state.memberCache = null;
-  },
-
-  /** 初始化 */
-  init() {
-    loadState();
-  }
-};
-
-window.State = State;
+state.init();

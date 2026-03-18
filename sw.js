@@ -1,76 +1,66 @@
-/**
- * sw.js - Service Worker for 天達大班報到系統 PWA
- * Cache Strategy: Cache-first for static assets, network-only for API
- */
-
 const CACHE_NAME = 'tianda-checkin-v1';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap',
+    './',
+    './index.html',
+    './manifest.json',
+    './css/styles.css',
+    './js/app.js',
+    './js/router.js',
+    './js/state.js',
+    './js/api.js',
+    './js/firebase-config.js'
 ];
 
-// API URL - never cache this
-const API_URL = 'https://script.google.com/macros/s/';
-
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS.filter(url => !url.startsWith('https://cdn.tailwindcss.com')));
-    }).catch(() => {
-      // Swallow errors from CDN caching
-    })
-  );
-  self.skipWaiting();
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => {
+            return cache.addAll(STATIC_ASSETS).catch(err => console.warn('Cache addAll failed:', err));
+        })
+    );
+    self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      )
-    )
-  );
-  self.clients.claim();
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
+    // API requests and Firebase WebSockets should not be cached
+    if (event.request.url.includes('script.google.com') || 
+        event.request.url.includes('firebase') || 
+        event.request.url.includes('firestore') ||
+        event.request.url.includes('googleapis')) {
+        return;
+    }
 
-  // Never cache AppScript API calls
-  if (url.includes(API_URL) || url.includes('script.google.com')) {
-    event.respondWith(fetch(event.request));
-    return;
-  }
-
-  // For CDN resources - stale-while-revalidate
-  if (url.includes('cdnjs.cloudflare.com') || url.includes('fonts.googleapis.com') || url.includes('tailwindcss.com')) {
+    // Stale-while-revalidate strategy for static assets
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(event.request);
-        const networkFetch = fetch(event.request).then((response) => {
-          if (response.ok) cache.put(event.request, response.clone());
-          return response;
-        }).catch(() => cached);
-        return cached || networkFetch;
-      })
-    );
-    return;
-  }
+        caches.match(event.request).then((cachedResponse) => {
+            const fetchPromise = fetch(event.request).then((networkResponse) => {
+                // Update cache with new response
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+                return networkResponse;
+            }).catch(() => {
+                // Ignore fetch errors (e.g., offline)
+            });
 
-  // For app HTML/assets - cache first, fallback to network
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
-        if (response.ok && event.request.method === 'GET') {
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
-        }
-        return response;
-      });
-    })
-  );
+            return cachedResponse || fetchPromise;
+        })
+    );
 });
