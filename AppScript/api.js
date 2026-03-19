@@ -1201,6 +1201,24 @@ function testGetAttendanceStats() {
   }
 }
 
+function testGetCheckinLog() {
+  const date = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy/M/d');
+  Logger.log('== testGetCheckinLog | 日期: ' + date + ' ==');
+  const result = apiGetCheckinLog({ date: date });
+  Logger.log('success: ' + result.success);
+  if (result.success) {
+    const d = result.data;
+    Logger.log('日期: ' + d.date + ' | 班別: ' + (d.classCode || '全部') + ' | 總筆數: ' + d.total);
+    if (d.note) Logger.log('備註: ' + d.note);
+    (d.records || []).slice(0, 5).forEach(function(r, i) {
+      Logger.log((i + 1) + '. [' + r.source + '] ' + r.time + '  ' + r.name + '(' + r.id + ')  ' + r.scheduleNote);
+    });
+    if (d.total > 5) Logger.log('... 共 ' + d.total + ' 筆，僅顯示前 5 筆');
+  } else {
+    Logger.log('錯誤: ' + result.error);
+  }
+}
+
 function testGetUnits() {
   const result = apiGetUnits({});
   Logger.log('testGetUnits → ' + JSON.stringify(result));
