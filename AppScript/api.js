@@ -388,6 +388,86 @@ function _apiGetAttendanceByDateImpl(params) {
 // ────────────────────────────────────────────────────────────────────
 
 /**
+ * 將單筆報到記錄推送到 Firebase checkin-log 節點
+ * 路徑：checkin-log/{date}_{scheduleNote}/{pushKey}
+ * @param {{ time, id, name, scheduleNote, source }} record
+ */
+function fbPushCheckinLog(record) {
+  try {
+    const secret = PropertiesService.getScriptProperties().getProperty('FIREBASE_SECRET');
+    if (!secret) { Logger.log('fbPushCheckinLog: 未設定 FIREBASE_SECRET'); return; }
+    const tz = 'Asia/Taipei';
+    const now = record._ts ? new Date(record._ts) : new Date();
+    const date = Utilities.formatDate(now, tz, 'yyyy/M/d');
+    const note = String(record.scheduleNote || '').trim();
+    // 從 scheduleNote（如 "實體1"）取 classCode（末尾數字）
+    const classCode = note.replace(/^[\u4e00-\u9fa5]+/, '') || 'X';
+    const nodePath = encodeURIComponent(date + '_' + classCode);
+    const dbUrl = 'https://jczs-checkin-default-rtdb.asia-southeast1.firebasedatabase.app';
+    const url = dbUrl + '/checkin-log/' + nodePath + '.json?auth=' + secret;
+    const payload = {
+      time: Utilities.formatDate(now, tz, 'HH:mm:ss'),
+      id: String(record.id || ''),
+      name: String(record.name || ''),
+      scheduleNote: note,
+      source: String(record.source || '人工'),
+      ts: now.getTime()
+    };
+    UrlFetchApp.fetch(url, {
+      method: 'post',            // POST → Firebase auto-generates push key
+      payload: JSON.stringify(payload),
+      contentType: 'application/json',
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    Logger.log('fbPushCheckinLog 失敗: ' + e.message);
+  }
+}
+
+/**
+ * Google 表單送出觸發器：將電子簽到推送到 Firebase
+ * 安裝方式：執行 installElectronicCheckinTrigger() 一次即可
+ * 觸發時機：INDATA_電子簽到 對應的 Google 表單有人填送
+ */
+function onElectronicCheckinSubmit(e) {
+  try {
+    // e.values: 依工作表欄位順序的陣列（0-indexed）
+    // INDATA_電子簽到 欄位：A(0)=時間戳, B(1)=ID, C(2)=姓名, E(4)=班程註記, G(6)=verify
+    const values = e.values || [];
+    if (!values[1]) return; // 無 ID 略過
+    const ts = values[0] ? new Date(values[0]) : new Date();
+    fbPushCheckinLog({
+      _ts: ts.getTime(),
+      id: String(values[1] || '').trim(),
+      name: String(values[2] || '').trim(),
+      scheduleNote: String(values[4] || '').trim(),
+      source: '電子'
+    });
+  } catch (e) {
+    Logger.log('onElectronicCheckinSubmit 錯誤: ' + e.message);
+  }
+}
+
+/**
+ * 執行此函式一次，安裝 Google 表單提交觸發器
+ * 注意：需在 INDATA_電子簽到 所在的試算表中執行
+ */
+function installElectronicCheckinTrigger() {
+  // 刪除已存在的同名觸發器，避免重複
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'onElectronicCheckinSubmit') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // 建立 onFormSubmit 觸發器（針對連結的表單）
+  ScriptApp.newTrigger('onElectronicCheckinSubmit')
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onFormSubmit()
+    .create();
+  Logger.log('✅ 已安裝 onElectronicCheckinSubmit 觸發器');
+}
+
+/**
  * 格式化班程註記欄（Col E）
  * scheduleNote Col E 的格式為：出勤方式 + 班別代碼
  * 例如：attendanceMode="實體"，classCode="1" → "實體1"
@@ -433,6 +513,18 @@ function writeToManualCheckin(records) {
   const lastRow = sheet.getLastRow();
   sheet.getRange(lastRow + 1, 1, rows.length, 5).setValues(rows);
   SpreadsheetApp.flush();
+
+  // 推送到 Firebase checkin-log（非同步，不影響主流程）
+  const scheduleNoteForPush = rows.length > 0 ? rows[0][4] : '';
+  records.forEach(function(r, i) {
+    fbPushCheckinLog({
+      _ts: now.getTime(),
+      id: String(r.id || ''),
+      name: String(r.name || ''),
+      scheduleNote: rows[i] ? rows[i][4] : scheduleNoteForPush,
+      source: '人工'
+    });
+  });
 }
 
 /**

@@ -1296,13 +1296,14 @@ async function loadStatsForSchedule() {
 }
 
 // ── CHECKIN LOG ───────────────────────────────────────────────────────────────
+let _clUnsubscribe = null; // 目前的 Firebase onValue 取消訂閱函式
+
 Router.register('checkin-log', async () => {
   const schedule = State.getSchedule();
-  // 預填日期：班程設定的日期（格式 yyyy/M/d → 轉為 input[type=date] 需要的 yyyy-MM-dd）
+  // 預填日期
   const dateEl = document.getElementById('cl-date');
   if (dateEl) {
     if (schedule?.date) {
-      // 轉換 "2026/3/19" → "2026-03-19"
       const parts = schedule.date.split('/');
       if (parts.length === 3) {
         dateEl.value = `${parts[0]}-${String(parts[1]).padStart(2,'0')}-${String(parts[2]).padStart(2,'0')}`;
@@ -1311,11 +1312,10 @@ Router.register('checkin-log', async () => {
       dateEl.value = new Date().toISOString().split('T')[0];
     }
   }
-  // 預填班別下拉（從已快取的班程清單取，顯示班別名稱）
+  // 預填班別下拉（顯示班別名稱）
   const classEl = document.getElementById('cl-class');
   if (classEl) {
     const schedules = State.getSchedulesCache('all') || [];
-    // 依 classCode 去重，保留對應 className
     const codeMap = {};
     schedules.forEach(s => {
       if (s.classCode && !codeMap[s.classCode]) codeMap[s.classCode] = s.className || s.classCode;
@@ -1328,74 +1328,144 @@ Router.register('checkin-log', async () => {
   await loadCheckinLog();
 });
 
-async function loadCheckinLog() {
+// 渲染報到記錄列表（接受排序好的陣列，time DESC）
+function _renderCheckinLogList(records, dateLabel, total) {
   const listEl = document.getElementById('cl-list');
   const infoEl = document.getElementById('cl-info');
   if (!listEl) return;
 
-  // 讀取篩選條件
+  if (infoEl) {
+    infoEl.textContent = `${dateLabel} · 共 ${total} 筆`;
+    infoEl.classList.remove('hidden');
+  }
+
+  if (records.length === 0) {
+    listEl.innerHTML = `<div class="p-10 text-center text-gray-400">
+      <i class="fa-solid fa-clipboard text-3xl mb-2 block opacity-30"></i>
+      <p class="text-sm">無符合的報到記錄</p>
+    </div>`;
+    return;
+  }
+
+  listEl.innerHTML = records.map((r, i) => {
+    const sourceBadge = r.source === '電子'
+      ? `<span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.65rem">電子</span>`
+      : `<span class="badge" style="background:#f0fdf4;color:#15803d;font-size:0.65rem">人工</span>`;
+    return `<div class="flex items-center gap-3 p-3 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}">
+      <div class="text-xs font-mono text-gray-400 w-16 shrink-0">${r.time}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-medium text-gray-800 text-sm">${r.name}</span>
+          ${sourceBadge}
+        </div>
+        <div class="text-xs text-gray-400">${r.id} · ${r.scheduleNote || ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadCheckinLog() {
+  // 取消舊的 Firebase 監聽
+  if (_clUnsubscribe) { _clUnsubscribe(); _clUnsubscribe = null; }
+
+  const listEl = document.getElementById('cl-list');
+  const infoEl = document.getElementById('cl-info');
+  if (!listEl) return;
+
   const dateInput = document.getElementById('cl-date')?.value || '';
   const classCode = document.getElementById('cl-class')?.value || '';
 
-  // 將 "2026-03-19" 轉回 "2026/3/19"
+  // 日期轉換："2026-03-19" → "2026/3/19"
   let dateParam = '';
   if (dateInput) {
     const [y, m, d] = dateInput.split('-');
     dateParam = `${y}/${parseInt(m)}/${parseInt(d)}`;
   }
+  const dateLabel = dateParam || '今日';
 
   listEl.innerHTML = `<div class="p-10 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>`;
   if (infoEl) infoEl.classList.add('hidden');
 
+  // ── 優先：Firebase onValue 即時監聽 ──────────────────────────────
+  if (window.FirebaseDB) {
+    try {
+      const { db, ref, onValue, off } = window.FirebaseDB;
+
+      // Firebase 節點路徑：checkin-log/{date}_{classCode} 或 checkin-log/{date}_所有
+      // 當 classCode 為空時，監聽整個 date 下所有班別的記錄（需多個節點）
+      // 簡化：監聽 checkin-log 根節點，前端過濾
+      const logRef = ref(db, 'checkin-log');
+      let fbFirstLoad = true;
+
+      const unsubscribe = onValue(logRef, (snapshot) => {
+        if (fbFirstLoad) {
+          fbFirstLoad = false;
+          hideBgLoading();
+        }
+        const allData = snapshot.val() || {};
+        // 展開所有子節點，過濾符合日期+班別的記錄
+        const records = [];
+        Object.entries(allData).forEach(([nodeKey, entries]) => {
+          // nodeKey 格式: "2026%2F3%2F19_1" 或 "2026/3/19_1"
+          const decodedKey = decodeURIComponent(nodeKey);
+          // 比對日期
+          if (dateParam && !decodedKey.startsWith(dateParam)) return;
+          // 比對班別
+          if (classCode) {
+            const keyClassCode = decodedKey.split('_').slice(1).join('_');
+            if (keyClassCode !== classCode) return;
+          }
+          if (!entries || typeof entries !== 'object') return;
+          Object.values(entries).forEach(r => {
+            if (r && r.id) records.push(r);
+          });
+        });
+
+        // 按 ts 反序排列（最新在前）
+        records.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        _renderCheckinLogList(records, dateLabel, records.length);
+      }, (error) => {
+        console.warn('Firebase checkin-log listen error, fallback to GAS:', error);
+        unsubscribe();
+        _clUnsubscribe = null;
+        _loadCheckinLogFromGAS(dateParam, classCode, dateLabel);
+      });
+
+      _clUnsubscribe = unsubscribe;
+      return; // Firebase 接管，不走 GAS
+    } catch (e) {
+      console.warn('Firebase onValue setup failed, fallback to GAS:', e);
+    }
+  }
+
+  // ── Fallback：GAS 查詢 ───────────────────────────────────────────
+  await _loadCheckinLogFromGAS(dateParam, classCode, dateLabel);
+}
+
+async function _loadCheckinLogFromGAS(dateParam, classCode, dateLabel) {
+  const listEl = document.getElementById('cl-list');
+  const infoEl = document.getElementById('cl-info');
   showBgLoading();
   try {
     const params = {};
     if (dateParam) params.date = dateParam;
     if (classCode) params.classCode = classCode;
-
     const data = await API.getCheckinLog(params);
     const records = data.records || [];
-
-    // 更新狀態資訊
-    if (infoEl) {
-      infoEl.textContent = `${data.date || dateParam || '今日'} ${classCode ? '班別:' + classCode : ''} · 共 ${data.total || records.length} 筆`;
-      if (data.note) infoEl.textContent += ` (${data.note})`;
+    if (infoEl && data.note) {
+      infoEl.textContent = `${dateLabel} · 共 ${data.total || records.length} 筆 (${data.note})`;
       infoEl.classList.remove('hidden');
     }
-
-    if (records.length === 0) {
-      listEl.innerHTML = `<div class="p-10 text-center text-gray-400">
-        <i class="fa-solid fa-clipboard text-3xl mb-2 block opacity-30"></i>
-        <p class="text-sm">${data.note || '無符合的報到記錄'}</p>
-      </div>`;
-      return;
-    }
-
-    listEl.innerHTML = records.map((r, i) => {
-      const sourceBadge = r.source === '電子'
-        ? `<span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.65rem">電子</span>`
-        : `<span class="badge" style="background:#f0fdf4;color:#15803d;font-size:0.65rem">人工</span>`;
-      return `<div class="flex items-center gap-3 p-3 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}">
-        <div class="text-xs font-mono text-gray-400 w-16 shrink-0">${r.time}</div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-medium text-gray-800 text-sm">${r.name}</span>
-            ${sourceBadge}
-          </div>
-          <div class="text-xs text-gray-400">${r.id} · ${r.scheduleNote || ''}</div>
-        </div>
-      </div>`;
-    }).join('');
-
+    _renderCheckinLogList(records, dateLabel, data.total || records.length);
   } catch (e) {
-    listEl.innerHTML = `<div class="p-6 text-center text-red-500 text-sm">
+    if (listEl) listEl.innerHTML = `<div class="p-6 text-center text-red-500 text-sm">
       <i class="fa-solid fa-triangle-exclamation mr-1"></i>${e.message}
     </div>`;
-    if (infoEl) infoEl.classList.add('hidden');
   } finally {
     hideBgLoading();
   }
 }
+
 
 // ── CLASS SCHEDULE ────────────────────────────────────────────────────────────
 let _allSchedules = [];
