@@ -974,6 +974,7 @@ function apiGetCheckinLog(params) {
     if (!schedSheet) throw new Error('找不到「班程」工作表');
     const schedLastRow = schedSheet.getLastRow();
     const validVerifies = new Set(); // 有效密碼集合（可能同一日有多班別）
+    let noVerifyRequired = false;     // 任一符合班程密碼為空 → 不需驗證
 
     if (schedLastRow >= 2) {
       const schedData = schedSheet.getRange(2, 1, schedLastRow - 1, 7).getValues();
@@ -986,13 +987,18 @@ function apiGetCheckinLog(params) {
         // 指定班別時進行篩選
         if (classCode && rowClassCode !== classCode) return;
         const verifyVal = String(row[3] || '').trim();
-        if (verifyVal) validVerifies.add(verifyVal);
+        if (verifyVal) {
+          validVerifies.add(verifyVal);
+        } else {
+          noVerifyRequired = true; // 密碼為空 → 該班程不需驗證
+        }
       });
     }
 
-    if (validVerifies.size === 0) {
+    // 找不到符合的班程（連空密碼班程都沒有）
+    if (!noVerifyRequired && validVerifies.size === 0) {
       return apiResponse(true, { records: [], date: targetDate, classCode: classCode, total: 0,
-        note: '該日期無班程或檢核密碼未設定' }, null);
+        note: '該日期無符合的班程' }, null);
     }
 
     // 2. 讀取電子簽到 和 人工簽到表
@@ -1012,7 +1018,7 @@ function apiGetCheckinLog(params) {
           rowDate.setHours(0, 0, 0, 0);
           if (rowDate.getTime() !== targetDateMs) return;
           const recVerify = String(row[6] || '').trim();
-          if (!validVerifies.has(recVerify)) return;
+          if (!noVerifyRequired && !validVerifies.has(recVerify)) return;
           const schedNote = String(row[4] || '').trim();
           // classCode 篩選：scheduleNote 包含 classCode 才通過
           if (classCode && !schedNote.includes(classCode)) return;
@@ -1044,7 +1050,7 @@ function apiGetCheckinLog(params) {
           rowDate.setHours(0, 0, 0, 0);
           if (rowDate.getTime() !== targetDateMs) return;
           const recVerify = String(row[8] || '').trim();
-          if (!validVerifies.has(recVerify)) return;
+          if (!noVerifyRequired && !validVerifies.has(recVerify)) return;
           const schedNote = String(row[4] || '').trim();
           if (classCode && !schedNote.includes(classCode)) return;
           records.push({
