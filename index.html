@@ -378,6 +378,9 @@
       <button class="nav-item" data-tab="stats" onclick="Router.navigateTo('attendance-stats')">
         <i class="fa-solid fa-chart-bar"></i><span>統計</span>
       </button>
+      <button class="nav-item" data-tab="log" onclick="Router.navigateTo('checkin-log')">
+        <i class="fa-solid fa-clipboard-list"></i><span>記錄</span>
+      </button>
       <button class="nav-item" data-tab="more" onclick="Router.navigateTo('settings')">
         <i class="fa-solid fa-gear"></i><span>設定</span>
       </button>
@@ -912,7 +915,35 @@
   </div>
 </template>
 
-<!-- ── SETTINGS ───────────────────────────────────── -->
+<!-- ── CHECKIN LOG ──────────────────────────────── -->
+<template id="tpl-checkin-log">
+  <div class="p-4 space-y-3">
+    <!-- 篩選列 -->
+    <div class="card p-3 flex flex-wrap gap-2 items-center">
+      <div class="flex gap-2 flex-1">
+        <input type="date" id="cl-date" class="form-input text-sm flex-1">
+        <select id="cl-class" class="form-input text-sm flex-1">
+          <option value="">所有班別</option>
+        </select>
+      </div>
+      <button onclick="loadCheckinLog()" class="btn-primary text-sm px-4 py-2 shrink-0">
+        <i class="fa-solid fa-rotate"></i> 重新整理
+      </button>
+    </div>
+
+    <!-- 狀態資訊 -->
+    <div id="cl-info" class="hidden text-xs text-gray-400 text-right px-1"></div>
+
+    <!-- 記錄列表 -->
+    <div id="cl-list" class="card divide-y divide-gray-100">
+      <div class="p-10 text-center text-gray-400">
+        <div class="spinner mx-auto mb-3"></div>載入中…
+      </div>
+    </div>
+  </div>
+</template>
+
+
 <template id="tpl-settings">
   <div class="p-4 space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start">
     <!-- Left column: schedule settings -->

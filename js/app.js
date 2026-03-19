@@ -25,6 +25,7 @@ const SIDEBAR_ITEMS = [
   { view: 'class-view',       icon: 'fa-layer-group',    label: '分班檢視' },
   { divider: true },
   { view: 'attendance-stats', icon: 'fa-chart-bar',      label: '出席統計' },
+  { view: 'checkin-log',      icon: 'fa-clipboard-list', label: '報到記錄' },
   { view: 'class-schedule',   icon: 'fa-calendar-days',  label: '班程資料' },
   { divider: true },
   { view: 'settings',         icon: 'fa-gear',           label: '工具設定' },
@@ -1294,10 +1295,108 @@ async function loadStatsForSchedule() {
   }
 }
 
+// ── CHECKIN LOG ───────────────────────────────────────────────────────────────
+Router.register('checkin-log', async () => {
+  const schedule = State.getSchedule();
+  // 預填日期：班程設定的日期（格式 yyyy/M/d → 轉為 input[type=date] 需要的 yyyy-MM-dd）
+  const dateEl = document.getElementById('cl-date');
+  if (dateEl) {
+    if (schedule?.date) {
+      // 轉換 "2026/3/19" → "2026-03-19"
+      const parts = schedule.date.split('/');
+      if (parts.length === 3) {
+        dateEl.value = `${parts[0]}-${String(parts[1]).padStart(2,'0')}-${String(parts[2]).padStart(2,'0')}`;
+      }
+    } else {
+      dateEl.value = new Date().toISOString().split('T')[0];
+    }
+  }
+  // 預填班別下拉（從已快取的班程清單取）
+  const classEl = document.getElementById('cl-class');
+  if (classEl) {
+    const schedules = State.getSchedulesCache('all') || [];
+    const codes = [...new Set(schedules.map(s => s.classCode).filter(Boolean))].sort();
+    classEl.innerHTML = '<option value="">所有班別</option>' +
+      codes.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (schedule?.classCode) classEl.value = schedule.classCode;
+  }
+  await loadCheckinLog();
+});
+
+async function loadCheckinLog() {
+  const listEl = document.getElementById('cl-list');
+  const infoEl = document.getElementById('cl-info');
+  if (!listEl) return;
+
+  // 讀取篩選條件
+  const dateInput = document.getElementById('cl-date')?.value || '';
+  const classCode = document.getElementById('cl-class')?.value || '';
+
+  // 將 "2026-03-19" 轉回 "2026/3/19"
+  let dateParam = '';
+  if (dateInput) {
+    const [y, m, d] = dateInput.split('-');
+    dateParam = `${y}/${parseInt(m)}/${parseInt(d)}`;
+  }
+
+  listEl.innerHTML = `<div class="p-10 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>`;
+  if (infoEl) infoEl.classList.add('hidden');
+
+  showBgLoading();
+  try {
+    const params = {};
+    if (dateParam) params.date = dateParam;
+    if (classCode) params.classCode = classCode;
+
+    const data = await API.getCheckinLog(params);
+    const records = data.records || [];
+
+    // 更新狀態資訊
+    if (infoEl) {
+      infoEl.textContent = `${data.date || dateParam || '今日'} ${classCode ? '班別:' + classCode : ''} · 共 ${data.total || records.length} 筆`;
+      if (data.note) infoEl.textContent += ` (${data.note})`;
+      infoEl.classList.remove('hidden');
+    }
+
+    if (records.length === 0) {
+      listEl.innerHTML = `<div class="p-10 text-center text-gray-400">
+        <i class="fa-solid fa-clipboard text-3xl mb-2 block opacity-30"></i>
+        <p class="text-sm">${data.note || '無符合的報到記錄'}</p>
+      </div>`;
+      return;
+    }
+
+    listEl.innerHTML = records.map((r, i) => {
+      const sourceBadge = r.source === '電子'
+        ? `<span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:0.65rem">電子</span>`
+        : `<span class="badge" style="background:#f0fdf4;color:#15803d;font-size:0.65rem">人工</span>`;
+      return `<div class="flex items-center gap-3 p-3 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}">
+        <div class="text-xs font-mono text-gray-400 w-16 shrink-0">${r.time}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium text-gray-800 text-sm">${r.name}</span>
+            ${sourceBadge}
+          </div>
+          <div class="text-xs text-gray-400">${r.id} · ${r.scheduleNote || ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    listEl.innerHTML = `<div class="p-6 text-center text-red-500 text-sm">
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>${e.message}
+    </div>`;
+    if (infoEl) infoEl.classList.add('hidden');
+  } finally {
+    hideBgLoading();
+  }
+}
+
 // ── CLASS SCHEDULE ────────────────────────────────────────────────────────────
 let _allSchedules = [];
 
 Router.register('class-schedule', () => { loadScheduleView(); });
+
 
 async function loadScheduleView() {
   const filter = document.getElementById('cs-filter')?.value || 'all';

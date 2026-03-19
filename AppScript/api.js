@@ -940,9 +940,141 @@ function apiSearchMembers(params) {
     return apiResponse(false, null, e.message);
   }
 }
-
 // ────────────────────────────────────────────────────────────────────
-// doPost 路由入口（由 程式碼.js 的 doPost 呼叫此函式）
+// API 12: getCheckinLog — 取得報到記錄（從來源直接讀取）
+// ────────────────────────────────────────────────────────────────────
+/**
+ * @param {Object} params - { date?: "yyyy/M/d", classCode?: string }
+ * date 預設為今日，classCode 可選（空則取該日所有班別）
+ * GAS 自行從班程表查該日的檢核密碼，對符者才列入結果
+ */
+function apiGetCheckinLog(params) {
+  try {
+    params = params || {};
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tz = 'Asia/Taipei';
+
+    // 日期：預設今日
+    const targetDate = params.date
+      ? params.date
+      : Utilities.formatDate(new Date(), tz, 'yyyy/M/d');
+    const classCode  = String(params.classCode || '').trim();
+
+    // 將 targetDate (如 "2026/3/19") 轉成 Date 對象，方便比較
+    const targetDateObj = (function() {
+      const parts = targetDate.split('/');
+      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    })();
+    targetDateObj.setHours(0, 0, 0, 0);
+    const targetDateMs = targetDateObj.getTime();
+
+    // 1. 從班程表查指定日期的檢核密碼
+    //    班程欄位：A=日期, D=檢核密碼, G=班別代碼
+    const schedSheet = ss.getSheetByName(SHEET_NAME.SCHEDULES);
+    if (!schedSheet) throw new Error('找不到「班程」工作表');
+    const schedLastRow = schedSheet.getLastRow();
+    const validVerifies = new Set(); // 有效密碼集合（可能同一日有多班別）
+
+    if (schedLastRow >= 2) {
+      const schedData = schedSheet.getRange(2, 1, schedLastRow - 1, 7).getValues();
+      schedData.forEach(function(row) {
+        if (!row[0]) return;
+        const d = new Date(row[0]);
+        d.setHours(0, 0, 0, 0);
+        if (d.getTime() !== targetDateMs) return;
+        const rowClassCode = String(row[6] || '').trim();
+        // 指定班別時進行篩選
+        if (classCode && rowClassCode !== classCode) return;
+        const verifyVal = String(row[3] || '').trim();
+        if (verifyVal) validVerifies.add(verifyVal);
+      });
+    }
+
+    if (validVerifies.size === 0) {
+      return apiResponse(true, { records: [], date: targetDate, classCode: classCode, total: 0,
+        note: '該日期無班程或檢核密碼未設定' }, null);
+    }
+
+    // 2. 讀取電子簽到 和 人工簽到表
+    const records = [];
+
+    // — INDATA_電子簽到：A=時間戳, B=ID, C=姓名, E=班程註記, G=verify
+    const eSheet = ss.getSheetByName('INDATA_電子簽到');
+    if (eSheet) {
+      const eLastRow = eSheet.getLastRow();
+      if (eLastRow >= 2) {
+        const eData = eSheet.getRange(2, 1, eLastRow - 1, 7).getValues();
+        eData.forEach(function(row) {
+          if (!row[1]) return; // 無 ID 跳過
+          const ts = row[0] ? new Date(row[0]) : null;
+          if (!ts || isNaN(ts.getTime())) return;
+          const rowDate = new Date(ts.getTime());
+          rowDate.setHours(0, 0, 0, 0);
+          if (rowDate.getTime() !== targetDateMs) return;
+          const recVerify = String(row[6] || '').trim();
+          if (!validVerifies.has(recVerify)) return;
+          const schedNote = String(row[4] || '').trim();
+          // classCode 篩選：scheduleNote 包含 classCode 才通過
+          if (classCode && !schedNote.includes(classCode)) return;
+          records.push({
+            timestamp: ts.getTime(),
+            time: Utilities.formatDate(ts, tz, 'HH:mm:ss'),
+            id: String(row[1]).trim(),
+            name: String(row[2] || '').trim(),
+            scheduleNote: schedNote,
+            source: '電子'
+          });
+        });
+      }
+    }
+
+    // — 人工簽到表：A=Google Form分欸, B=ID, C=姓名, E=班程註記, F=報到時間戳, I=verify
+    const mSheet = ss.getSheetByName(SHEET_NAME.MANUAL_CHECKIN);
+    if (mSheet) {
+      const mLastRow = mSheet.getLastRow();
+      if (mLastRow >= 2) {
+        const mData = mSheet.getRange(2, 1, mLastRow - 1, 9).getValues();
+        mData.forEach(function(row) {
+          if (!row[1]) return; // 無 ID 跳過
+          // 使用 F 欄（row[5]）作為報到時間，若空則 fallback 到 A 欄（row[0]）
+          const ts = (row[5] && new Date(row[5]).getTime ? new Date(row[5]) :
+                      row[0] ? new Date(row[0]) : null);
+          if (!ts || isNaN(ts.getTime())) return;
+          const rowDate = new Date(ts.getTime());
+          rowDate.setHours(0, 0, 0, 0);
+          if (rowDate.getTime() !== targetDateMs) return;
+          const recVerify = String(row[8] || '').trim();
+          if (!validVerifies.has(recVerify)) return;
+          const schedNote = String(row[4] || '').trim();
+          if (classCode && !schedNote.includes(classCode)) return;
+          records.push({
+            timestamp: ts.getTime(),
+            time: Utilities.formatDate(ts, tz, 'HH:mm:ss'),
+            id: String(row[1]).trim(),
+            name: String(row[2] || '').trim(),
+            scheduleNote: schedNote,
+            source: '人工'
+          });
+        });
+      }
+    }
+
+    // 3. 按時間戳反序排列（最新在前）
+    records.sort(function(a, b) { return b.timestamp - a.timestamp; });
+
+    // 移除 timestamp （內部排序用，不需要回傳）
+    const result = records.map(function(r) {
+      return { time: r.time, id: r.id, name: r.name, scheduleNote: r.scheduleNote, source: r.source };
+    });
+
+    return apiResponse(true, { records: result, date: targetDate, classCode: classCode, total: result.length }, null);
+
+  } catch(e) {
+    Logger.log('apiGetCheckinLog 錯誤: ' + e.message + '\n' + e.stack);
+    return apiResponse(false, null, e.message);
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────
 /**
  * 主路由函式，由 doPost(e) 呼叫
@@ -964,6 +1096,7 @@ function routeApiRequest(params) {
     case 'getUnits':                    return apiGetUnits(params);
     case 'getMemberAttendanceHistory':  return apiGetMemberAttendanceHistory(params);
     case 'searchMembers':               return apiSearchMembers(params);
+    case 'getCheckinLog':               return apiGetCheckinLog(params);
     default:
       return apiResponse(false, null, `未知的 action: ${action}`);
   }

@@ -174,6 +174,11 @@ async function apiCheckinTemp(name, verify, classCode, attendanceMode = '實體'
   return result;
 }
 
+/** 取得報到記錄（直接從來源讀取，GAS 端驗證檢核密碼） */
+async function apiGetCheckinLog(params = {}) {
+  return callAPI('getCheckinLog', params);
+}
+
 /** 取得班程列表 */
 async function apiGetSchedules(filter = 'all') {
   return callAPI('getSchedules', { filter });
@@ -199,6 +204,7 @@ window.API = {
   checkin: apiCheckin,
   checkinManualBatch: apiCheckinManualBatch,
   checkinTemp: apiCheckinTemp,
+  getCheckinLog: apiGetCheckinLog,
   getSchedules: apiGetSchedules,
   getUnits: apiGetUnits,
   getMemberAttendanceHistory: apiGetMemberAttendanceHistory,
