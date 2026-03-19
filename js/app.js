@@ -1386,61 +1386,75 @@ async function loadCheckinLog() {
   listEl.innerHTML = `<div class="p-10 text-center text-gray-400"><div class="spinner mx-auto mb-3"></div>載入中…</div>`;
   if (infoEl) infoEl.classList.add('hidden');
 
-  // ── 優先：Firebase onValue 即時監聽 ──────────────────────────────
+  // ── Firebase 策略判斷 ──────────────────────────────────────────────
+  // 只有「查詢今日」且「今日有班次設定」時才需要即時監聽
+  // 其他情況（查詢過去、今日無班次）資料不會再變動，一次性讀取即可
+  const todayStr = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()}`;
+  })();
+  const isToday = !dateParam || dateParam === todayStr;
+  const schedule = State.getSchedule();
+  const todayHasSchedule = isToday && schedule?.date === todayStr;
+  const useRealtime = todayHasSchedule; // 今日有班次 → onValue；其他 → get()
+
   if (window.FirebaseDB) {
     try {
-      const { db, ref, onValue, off } = window.FirebaseDB;
-
-      // Firebase 節點路徑：checkin-log/{date}_{classCode} 或 checkin-log/{date}_所有
-      // 當 classCode 為空時，監聽整個 date 下所有班別的記錄（需多個節點）
-      // 簡化：監聽 checkin-log 根節點，前端過濾
+      const { db, ref, onValue, get } = window.FirebaseDB;
       const logRef = ref(db, 'checkin-log');
-      let fbFirstLoad = true;
 
-      const unsubscribe = onValue(logRef, (snapshot) => {
-        if (fbFirstLoad) {
-          fbFirstLoad = false;
-          hideBgLoading();
-        }
+      // 共用：從 Firebase snapshot 提取並過濾記錄
+      function extractRecords(snapshot) {
         const allData = snapshot.val() || {};
-        // 展開所有子節點，過濾符合日期+班別的記錄
         const records = [];
         Object.entries(allData).forEach(([nodeKey, entries]) => {
-          // nodeKey 格式: "2026%2F3%2F19_1" 或 "2026/3/19_1"
           const decodedKey = decodeURIComponent(nodeKey);
-          // 比對日期
           if (dateParam && !decodedKey.startsWith(dateParam)) return;
-          // 比對班別
           if (classCode) {
             const keyClassCode = decodedKey.split('_').slice(1).join('_');
             if (keyClassCode !== classCode) return;
           }
           if (!entries || typeof entries !== 'object') return;
-          Object.values(entries).forEach(r => {
-            if (r && r.id) records.push(r);
-          });
+          Object.values(entries).forEach(r => { if (r && r.id) records.push(r); });
         });
-
-        // 按 ts 反序排列（最新在前）
         records.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-        _renderCheckinLogList(records, dateLabel, records.length);
-      }, (error) => {
-        console.warn('Firebase checkin-log listen error, fallback to GAS:', error);
-        unsubscribe();
-        _clUnsubscribe = null;
-        _loadCheckinLogFromGAS(dateParam, classCode, dateLabel);
-      });
+        return records;
+      }
 
-      _clUnsubscribe = unsubscribe;
-      return; // Firebase 接管，不走 GAS
+      if (useRealtime) {
+        // 即時監聽模式
+        let fbFirstLoad = true;
+        const unsubscribe = onValue(logRef, (snapshot) => {
+          if (fbFirstLoad) { fbFirstLoad = false; hideBgLoading(); }
+          _renderCheckinLogList(extractRecords(snapshot), dateLabel, extractRecords(snapshot).length);
+        }, (error) => {
+          console.warn('Firebase checkin-log listen error, fallback to GAS:', error);
+          unsubscribe(); _clUnsubscribe = null;
+          _loadCheckinLogFromGAS(dateParam, classCode, dateLabel);
+        });
+        _clUnsubscribe = unsubscribe;
+        return;
+      } else {
+        // 一次性讀取模式（過去日期或今日無班次）
+        const snapshot = await get(logRef);
+        hideBgLoading();
+        const records = extractRecords(snapshot);
+        if (records.length > 0) {
+          // Firebase 有資料，直接顯示，不再打 GAS
+          _renderCheckinLogList(records, dateLabel, records.length);
+          return;
+        }
+        // Firebase 無此日期資料，fallback 到 GAS 並將結果寫入 Firebase（供下次快取）
+      }
     } catch (e) {
-      console.warn('Firebase onValue setup failed, fallback to GAS:', e);
+      console.warn('Firebase read failed, fallback to GAS:', e);
     }
   }
 
   // ── Fallback：GAS 查詢 ───────────────────────────────────────────
   await _loadCheckinLogFromGAS(dateParam, classCode, dateLabel);
 }
+
 
 async function _loadCheckinLogFromGAS(dateParam, classCode, dateLabel) {
   const listEl = document.getElementById('cl-list');
