@@ -1275,15 +1275,20 @@ async function loadStatsForSchedule() {
   const s = _statsSchedules[idx];
 
   const cached = State.getStatsCache(s.date, s.classCode);
-  if (cached) renderStatsData(cached.data);
+  if (cached) {
+    renderStatsData(cached.data);
+    // 快取仍有效，直接返回，不觸發後台重新請求
+    return;
+  }
 
+  // 無快取（或快取已過期）才從 API 取得並顯示更新中
   showBgLoading();
   try {
     const fresh = await API.getAttendanceStats(s.date, s.classCode);
     State.setStatsCache(s.date, s.classCode, fresh);
     renderStatsData(fresh);
   } catch (e) {
-    if (!cached) showToast('載入統計失敗: ' + e.message, 'error');
+    showToast('載入統計失敗: ' + e.message, 'error');
   } finally {
     hideBgLoading();
   }
