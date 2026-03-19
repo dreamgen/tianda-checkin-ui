@@ -79,8 +79,41 @@ async function apiGetAttendanceByDate(date, scheduleNote, params = {}) {
   return data;
 }
 
-/** 取得出席統計 KPI */
+/** 取得出席統計 KPI（優先從 Firebase 快取計算，避免重打 GAS） */
 async function apiGetAttendanceStats(date, scheduleNote) {
+  if (window.FirebaseDB) {
+    try {
+      const { db, ref, get } = window.FirebaseDB;
+      const snapshot = await get(ref(db, `attendance/${date}_${scheduleNote}`));
+      if (snapshot.exists()) {
+        const records = Object.values(snapshot.val());
+        // 從快取記錄直接計算統計
+        let present = 0, absent = 0, late = 0, leave = 0, male = 0, female = 0, tutor = 0;
+        const byUnit = {};
+        const LEAVE = ['leave_public','leave_personal','leave_sick','leave_funeral','leave_wedding','leave_maternity'];
+        records.forEach(r => {
+          const s = r.status || 'no_record';
+          if (['present','present_tutor','online','online_tutor'].includes(s)) present++;
+          else if (s === 'late') { present++; late++; }
+          else if (LEAVE.includes(s)) leave++;
+          else if (s !== 'no_record') absent++;
+          if (r.gender === '乾') male++;
+          else if (r.gender === '坤') female++;
+          if (['present_tutor','online_tutor'].includes(s)) tutor++;
+          const unit = r.unit || '未分類';
+          if (!byUnit[unit]) byUnit[unit] = { present: 0, absent: 0, late: 0, leave: 0, total: 0 };
+          byUnit[unit].total++;
+          if (r.isCheckedIn) byUnit[unit].present++;
+          else if (r.isLeave) byUnit[unit].leave++;
+          else byUnit[unit].absent++;
+        });
+        const byUnitArray = Object.entries(byUnit)
+          .map(([unit, s]) => ({ unit, ...s }))
+          .sort((a, b) => b.total - a.total);
+        return { total: records.length, present, absent, late, leave, male, female, tutor, byUnit: byUnitArray };
+      }
+    } catch (e) { console.warn('Firebase stats calc failed, fallback to GAS', e); }
+  }
   return callAPI('getAttendanceStats', { date, scheduleNote });
 }
 

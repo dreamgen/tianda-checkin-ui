@@ -127,6 +127,13 @@ const State = {
     try { localStorage.removeItem(MEMBER_CACHE_KEY); } catch {}
   },
 
+  /** 班員快取是否仍在指定毫秒內（預設 2 分鐘）  */
+  isMemberCacheFresh(ttlMs = 2 * 60 * 1000) {
+    const ts = _memberCacheMem?.timestamp
+      ?? (() => { try { return JSON.parse(localStorage.getItem(MEMBER_CACHE_KEY) || 'null')?.timestamp; } catch { return null; } })();
+    return ts != null && (Date.now() - ts) <= ttlMs;
+  },
+
   // ── Attendance Cache (依日期/班別，當天有效) ──────────────────────────────
   getAttendanceCache(date, classCode) {
     if (!isAttCacheValid(date)) return null;

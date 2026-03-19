@@ -564,16 +564,19 @@ async function loadMCData() {
     _allMembers = cachedMembers;
     _populateMcFilters(_allMembers);
     renderMemberList();
-    showBgLoading();
-    API.getMembers({ status: 'active' }).then(res => {
-      const fresh = res.members || [];
-      State.setMemberCache(fresh);
-      _allMembers = fresh;
-      _populateMcFilters(fresh);
-      renderMemberList();
-      showToast('資料已更新', 'info', 2000);
-      hideBgLoading();
-    }).catch(() => hideBgLoading());
+    // 快取仍新鮮（2 分鐘內）則跳過背景更新，避免不必要的 GAS 請求與「更新中」提示
+    if (!State.isMemberCacheFresh(2 * 60 * 1000)) {
+      showBgLoading();
+      API.getMembers({ status: 'active' }).then(res => {
+        const fresh = res.members || [];
+        State.setMemberCache(fresh);
+        _allMembers = fresh;
+        _populateMcFilters(fresh);
+        renderMemberList();
+        showToast('資料已更新', 'info', 2000);
+        hideBgLoading();
+      }).catch(() => hideBgLoading());
+    }
   } else {
     showBgLoading();
     try {
