@@ -84,67 +84,61 @@ async function apiGetAttendanceStats(date, scheduleNote) {
   return callAPI('getAttendanceStats', { date, scheduleNote });
 }
 
-// Helper to push to Firebase Sync Queue
-async function pushToFirebaseQueue(action, payload, date, classCode, localUpdates) {
-    if (!window.FirebaseDB) return false;
-    const { db, ref, set, update } = window.FirebaseDB;
-    
-    // 1. Update local UI cache immediately
-    if (localUpdates && localUpdates.length > 0) {
-        const cacheRef = ref(db, `attendance/${date}_${classCode}`);
-        const updatesObj = {};
-        localUpdates.forEach(u => {
-            updatesObj[u.id] = { ...u, timestamp: Date.now() };
-        });
-        await update(cacheRef, updatesObj).catch(e => console.warn('Local FB update err', e));
-    }
-    
-    // 2. Push to sync queue
-    const syncId = Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-    await set(ref(db, `syncQueue/${syncId}`), {
-        action,
-        payload,
-        status: 'pending',
-        timestamp: Date.now()
+// Helper：報到成功後非同步更新 Firebase 快取（確保下次讀取走快取而非 GAS）
+function _fbCacheUpdateCheckin(date, entries) {
+    if (!window.FirebaseDB || !date || !entries || entries.length === 0) return;
+    const { db, ref, update } = window.FirebaseDB;
+    // 依班別分組，分別更新對應快取節點
+    const byClass = {};
+    entries.forEach(u => {
+        const key = u.classCode || '';
+        if (!byClass[key]) byClass[key] = {};
+        byClass[key][u.id] = { ...u, timestamp: Date.now() };
     });
-    return true;
+    Object.entries(byClass).forEach(([classCode, updates]) => {
+        update(ref(db, `attendance/${date}_${classCode}`), updates)
+            .catch(e => console.warn('FB cache update err', e));
+    });
 }
 
 /** 單筆 QR 掃描 / 手動報到 */
 async function apiCheckin(id, name, verify, classCode, attendanceMode = '實體', notes = '') {
-  const schedule = window.State ? window.State.getSchedule() : { date: new Date().toISOString().split('T')[0] };
-  const date = schedule.date;
-  
-  const localUpdate = [{ id, name, classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }];
-  const pushed = await pushToFirebaseQueue('checkin', { id, name, verify, classCode, attendanceMode, notes }, date, classCode, localUpdate);
-  if (pushed) return { success: true, message: '已記錄到本地快取' };
-
-  return callAPI('checkin', { id, name, verify, classCode, attendanceMode, notes });
+  const result = await callAPI('checkin', { id, name, verify, classCode, attendanceMode, notes });
+  // 報到成功後非同步更新 Firebase 快取
+  if (result) {
+    const date = (window.State?.getSchedule()?.date) || new Date().toISOString().split('T')[0];
+    _fbCacheUpdateCheckin(date, [{ id, name, classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }]);
+  }
+  return result;
 }
 
 /** 批次簡易報到 */
 async function apiCheckinManualBatch(verify, records, attendanceMode = '實體') {
-  const schedule = window.State ? window.State.getSchedule() : { date: new Date().toISOString().split('T')[0], classCode: records[0]?.classCode };
-  const date = schedule.date;
-  
-  const localUpdates = records.map(r => ({ id: r.id, name: r.name, classCode: r.classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }));
-  const pushed = await pushToFirebaseQueue('checkinManualBatch', { verify, records, attendanceMode }, date, schedule.classCode, localUpdates);
-  if (pushed) return { success: true, message: '批次已記錄到本地快取' };
-
-  return callAPI('checkinManualBatch', { verify, records, attendanceMode });
+  const result = await callAPI('checkinManualBatch', { verify, records, attendanceMode });
+  // 報到成功後非同步更新 Firebase 快取
+  if (result) {
+    const date = (window.State?.getSchedule()?.date) || new Date().toISOString().split('T')[0];
+    const entries = records.map(r => ({
+      id: r.id, name: r.name,
+      classCode: r.classCode,
+      attendanceMode: r.attendanceMode || attendanceMode,
+      isCheckedIn: true, status: 'present', statusRaw: '○'
+    }));
+    _fbCacheUpdateCheckin(date, entries);
+  }
+  return result;
 }
 
 /** 臨時報到 */
 async function apiCheckinTemp(name, verify, classCode, attendanceMode = '實體', relatedId = '', notes = '') {
-  const schedule = window.State ? window.State.getSchedule() : { date: new Date().toISOString().split('T')[0] };
-  const date = schedule.date;
-  const tempId = 'TEMP_' + Date.now();
-  
-  const localUpdate = [{ id: tempId, name, classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }];
-  const pushed = await pushToFirebaseQueue('checkinTemp', { name, verify, classCode, attendanceMode, relatedId, notes }, date, classCode, localUpdate);
-  if (pushed) return { success: true, message: '臨時報到已記錄到本地快取' };
-
-  return callAPI('checkinTemp', { name, verify, classCode, attendanceMode, relatedId, notes });
+  const result = await callAPI('checkinTemp', { name, verify, classCode, attendanceMode, relatedId, notes });
+  // 報到成功後非同步更新 Firebase 快取（使用 GAS 返回的 tempId）
+  if (result) {
+    const date = (window.State?.getSchedule()?.date) || new Date().toISOString().split('T')[0];
+    const tempId = result.tempId || ('TEMP_' + Date.now());
+    _fbCacheUpdateCheckin(date, [{ id: tempId, name, classCode, attendanceMode, isCheckedIn: true, status: 'present', statusRaw: '○' }]);
+  }
+  return result;
 }
 
 /** 取得班程列表 */
