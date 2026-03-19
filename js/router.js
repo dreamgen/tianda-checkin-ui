@@ -58,6 +58,12 @@ const VIEWS = {
     sidebarItem: 'attendance-stats',
     init: null,
   },
+  'checkin-log': {
+    title: '報到記錄',
+    navTab: 'log',
+    sidebarItem: 'checkin-log',
+    init: null,
+  },
   'class-schedule': {
     title: '班程資料',
     navTab: 'more',
