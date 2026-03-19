@@ -799,7 +799,7 @@ function quickSearch(term) {
   let filtered = members.filter(m => {
     if (searchTerm && !m.name.toLowerCase().includes(searchTerm) && !m.id.toLowerCase().includes(searchTerm)) return false;
     if (unitFilter && m.unit !== unitFilter) return false;
-    if (classFilter && m.class !== classFilter) return false;
+    if (classFilter && !(m.class || '').split(',').map(c => c.trim()).includes(classFilter)) return false;
     if (statusFilter) {
       const att = _currentAttendance[m.id];
       if (statusFilter === 'present' && !att?.isCheckedIn) return false;
@@ -942,7 +942,7 @@ function filterMemberListView() {
   const filtered = _allMembers.filter(m => {
     if (term && !m.name.toLowerCase().includes(term) && !m.id.includes(term)) return false;
     if (unit && m.unit !== unit) return false;
-    if (cls  && m.class !== cls)  return false;
+    if (cls  && !(m.class || '').split(',').map(c => c.trim()).includes(cls))  return false;
     return true;
   });
 
