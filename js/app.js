@@ -1311,13 +1311,18 @@ Router.register('checkin-log', async () => {
       dateEl.value = new Date().toISOString().split('T')[0];
     }
   }
-  // 預填班別下拉（從已快取的班程清單取）
+  // 預填班別下拉（從已快取的班程清單取，顯示班別名稱）
   const classEl = document.getElementById('cl-class');
   if (classEl) {
     const schedules = State.getSchedulesCache('all') || [];
-    const codes = [...new Set(schedules.map(s => s.classCode).filter(Boolean))].sort();
+    // 依 classCode 去重，保留對應 className
+    const codeMap = {};
+    schedules.forEach(s => {
+      if (s.classCode && !codeMap[s.classCode]) codeMap[s.classCode] = s.className || s.classCode;
+    });
+    const options = Object.entries(codeMap).sort((a, b) => a[0].localeCompare(b[0]));
     classEl.innerHTML = '<option value="">所有班別</option>' +
-      codes.map(c => `<option value="${c}">${c}</option>`).join('');
+      options.map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
     if (schedule?.classCode) classEl.value = schedule.classCode;
   }
   await loadCheckinLog();
