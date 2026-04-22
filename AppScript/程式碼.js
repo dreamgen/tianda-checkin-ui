@@ -400,11 +400,15 @@ function doGet(e){
       .timeBased()
       .after(1000)
       .create();
-    break;
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, message: 'Trigger 已設定' }))
+        .setMimeType(ContentService.MimeType.JSON);
     default:
-      Logger.log("No Match Method!");
-  }  
-
+      Logger.log("doGet: No Match Method - " + doMethod);
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: '不支援的 GET 方法，請改用 POST' }))
+        .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**

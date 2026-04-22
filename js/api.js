@@ -3,6 +3,14 @@
  * 天達大班報到系統 PWA
  */
 
+/**
+ * ⚠️ SECURITY NOTICE
+ * GAS Deploy URL 含 Deploy ID，存在於公開 Repository。
+ * 請確認 GAS 部署設定：
+ * 1. Apps Script → 部署 → 存取權 → 設為「所有人」僅在必要時使用
+ * 2. GAS 端已透過 verify token 驗證寫入請求（checkin, checkinManualBatch, checkinTemp）
+ * 3. 若需更換 Deploy ID，請同步更新此常數並重新部署
+ */
 const API_BASE = 'https://script.google.com/macros/s/AKfycbwAIC1ZtWZVVtji1-dkozis8CFkyqx8m9h3_kP98wd53RzwSey634ZH98kWwESXXTMP/exec';
 
 // 飛行中請求去重：相同 read 請求共用同一個 Promise，避免重複打 API

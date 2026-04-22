@@ -3,6 +3,20 @@
  * 天達大班報到系統 PWA v1.1
  */
 
+// ── Security helpers ──────────────────────────────────────────────────────────
+/**
+ * 將字串中的 HTML 特殊字元轉義，防止 XSS
+ * 所有插入 innerHTML 的外部資料（API 回應、錯誤訊息）應先通過此函式
+ */
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── Global state ─────────────────────────────────────────────────────────────
 let _html5QrCode = null;
 let _scannerFacingMode = 'environment';
@@ -47,7 +61,8 @@ function showToast(msg, type = 'info', duration = 3000) {
   const icons = { success: 'fa-check-circle', error: 'fa-circle-xmark', info: 'fa-circle-info' };
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> ${msg}`;
+  // 使用 escapeHtml 避免 API 錯誤訊息或外部資料造成 XSS
+  toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> ${escapeHtml(msg)}`;
   const container = document.getElementById('toast-container');
   container.appendChild(toast);
   setTimeout(() => {
@@ -85,7 +100,8 @@ function hideBgLoading() {
 
 // ── Verify helper ─────────────────────────────────────────────────────────
 function getVerify() {
-  return State.getSchedule()?.verify || 'passf';
+  // 不使用硬編碼 fallback，回傳空字串讓 GAS 端正確拒絕未設定班程的請求
+  return State.getSchedule()?.verify || '';
 }
 
 // ── Schedules fetch with daily cache ──────────────────────────────────────
@@ -471,7 +487,7 @@ async function onQRSuccess(decodedText) {
   } catch (e) {
     resultEl.innerHTML = `
       <div class="text-red-600 text-sm mb-3 flex items-center gap-2">
-        <i class="fa-solid fa-circle-xmark"></i> ${e.message}
+        <i class="fa-solid fa-circle-xmark"></i> ${escapeHtml(e.message)}
       </div>
       <button onclick="startScanner(); document.getElementById('scanner-result').classList.add('hidden')"
               class="btn-secondary text-sm w-full">重新掃描</button>`;
@@ -588,7 +604,7 @@ async function loadMCData() {
       renderMemberList();
     } catch (e) {
       const listEl = document.getElementById('mc-member-list');
-      if (listEl) listEl.innerHTML = `<div class="p-6 text-center text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${e.message}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="p-6 text-center text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${escapeHtml(e.message)}</div>`;
     } finally {
       hideBgLoading();
     }
@@ -919,7 +935,7 @@ Router.register('member-list', async () => {
       populateMlFilters(_allMembers);
       filterMemberListView();
     } catch (e) {
-      document.getElementById('ml-list').innerHTML = `<div class="card p-8 text-center text-red-500">${e.message}</div>`;
+      document.getElementById('ml-list').innerHTML = `<div class="card p-8 text-center text-red-500">${escapeHtml(e.message)}</div>`;
     } finally {
       hideBgLoading();
     }
@@ -1105,7 +1121,7 @@ Router.register('class-view', async () => {
       State.setMemberCache(_allMembers);
       renderClassView(_allMembers);
     } catch (e) {
-      document.getElementById('cv-class-list').innerHTML = `<div class="card p-8 text-center text-red-500">${e.message}</div>`;
+      document.getElementById('cv-class-list').innerHTML = `<div class="card p-8 text-center text-red-500">${escapeHtml(e.message)}</div>`;
     } finally {
       hideBgLoading();
     }
@@ -1473,7 +1489,7 @@ async function _loadCheckinLogFromGAS(dateParam, classCode, dateLabel) {
     _renderCheckinLogList(records, dateLabel, data.total || records.length);
   } catch (e) {
     if (listEl) listEl.innerHTML = `<div class="p-6 text-center text-red-500 text-sm">
-      <i class="fa-solid fa-triangle-exclamation mr-1"></i>${e.message}
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>${escapeHtml(e.message)}
     </div>`;
   } finally {
     hideBgLoading();

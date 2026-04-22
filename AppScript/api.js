@@ -529,12 +529,16 @@ function writeToManualCheckin(records) {
 
 /**
  * 驗證 verify token 是否與今日密碼相符
+ * ⚠️ Fail-closed：CheckPassToday 未設定時一律拒絕，避免意外開放全員報到
  */
 function validateVerifyToken(verify) {
   const correctPw = getNamedRangeValue('CheckPassToday');
-  if (!correctPw) return { valid: true, warning: 'CheckPassToday 未設定，跳過驗證' };
+  if (!correctPw) {
+    Logger.log('[SECURITY WARNING] CheckPassToday 未設定，拒絕所有報到請求');
+    return { valid: false, error: '今日班程密碼尚未設定，請聯絡管理員' };
+  }
   if (String(verify) !== String(correctPw)) {
-    return { valid: false, error: `驗證失敗：密碼不符 (輸入: ${verify})` };
+    return { valid: false, error: '驗證失敗：密碼不符' };
   }
   return { valid: true };
 }
@@ -1046,6 +1050,18 @@ function apiGetCheckinLog(params) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tz = 'Asia/Taipei';
 
+    // Helper: 找出有真實資料的下一列（忽略結尾的空白列 或 Form 預留列）
+    // 使用 getNextDataCell(Direction.UP) 避免讀取整欄資料，只需 2 次 API call
+    function getRealNextRow(sheet, startRow, col) {
+      if (!sheet) return startRow;
+      col = col || 1; // 預設看 A 欄（時間戳）
+      const bottomCell = sheet.getRange(sheet.getMaxRows(), col);
+      const lastDataRow = bottomCell.isBlank()
+        ? bottomCell.getNextDataCell(SpreadsheetApp.Direction.UP).getRow()
+        : sheet.getMaxRows(); // 整張 Sheet 都填滿，最後一列即是最新一筆
+      return Math.max(startRow, lastDataRow + 1);
+    }
+
     // 日期：預設今日
     const targetDate = params.date
       ? params.date
@@ -1089,19 +1105,35 @@ function apiGetCheckinLog(params) {
 
     // 找不到符合的班程（連空密碼班程都沒有）
     if (!noVerifyRequired && validVerifies.size === 0) {
-      return apiResponse(true, { records: [], date: targetDate, classCode: classCode, total: 0,
-        note: '該日期無符合的班程' }, null);
+      const eStartRow = Math.max(2, parseInt(params.eStartRow) || 2);
+      const mStartRow = Math.max(2, parseInt(params.mStartRow) || 2);
+      const nERow = getRealNextRow(ss.getSheetByName('INDATA_電子簽到'), eStartRow);
+      const nMRow = getRealNextRow(ss.getSheetByName(SHEET_NAME.MANUAL_CHECKIN), mStartRow);
+
+      return apiResponse(true, { 
+        records: [], 
+        date: targetDate, 
+        classCode: classCode, 
+        total: 0,
+        nextERow: nERow,
+        nextMRow: nMRow,
+        note: '該日期無符合的班程' 
+      }, null);
     }
 
     // 2. 讀取電子簽到 和 人工簽到表
     const records = [];
+    let nextERow = 2;
+    let nextMRow = 2;
 
     // — INDATA_電子簽到：A=時間戳, B=ID, C=姓名, E=班程註記, G=verify
     const eSheet = ss.getSheetByName('INDATA_電子簽到');
     if (eSheet) {
-      const eLastRow = eSheet.getLastRow();
-      if (eLastRow >= 2) {
-        const eData = eSheet.getRange(2, 1, eLastRow - 1, 7).getValues();
+      const startRow = Math.max(2, parseInt(params.eStartRow) || 2);
+      nextERow = getRealNextRow(eSheet, startRow);
+
+      if (nextERow > startRow) {
+        const eData = eSheet.getRange(startRow, 1, nextERow - startRow, 7).getValues();
         eData.forEach(function(row) {
           if (!row[1]) return; // 無 ID 跳過
           const ts = row[0] ? new Date(row[0]) : null;
@@ -1129,9 +1161,11 @@ function apiGetCheckinLog(params) {
     // — 人工簽到表：A=Google Form分欸, B=ID, C=姓名, E=班程註記, F=報到時間戳, I=verify
     const mSheet = ss.getSheetByName(SHEET_NAME.MANUAL_CHECKIN);
     if (mSheet) {
-      const mLastRow = mSheet.getLastRow();
-      if (mLastRow >= 2) {
-        const mData = mSheet.getRange(2, 1, mLastRow - 1, 9).getValues();
+      const startRow = Math.max(2, parseInt(params.mStartRow) || 2);
+      nextMRow = getRealNextRow(mSheet, startRow);
+
+      if (nextMRow > startRow) {
+        const mData = mSheet.getRange(startRow, 1, nextMRow - startRow, 9).getValues();
         mData.forEach(function(row) {
           if (!row[1]) return; // 無 ID 跳過
           // 使用 F 欄（row[5]）作為報到時間，若空則 fallback 到 A 欄（row[0]）
@@ -1165,7 +1199,14 @@ function apiGetCheckinLog(params) {
       return { time: r.time, id: r.id, name: r.name, scheduleNote: r.scheduleNote, source: r.source };
     });
 
-    return apiResponse(true, { records: result, date: targetDate, classCode: classCode, total: result.length }, null);
+    return apiResponse(true, { 
+      records: result, 
+      date: targetDate, 
+      classCode: classCode, 
+      total: result.length,
+      nextERow: nextERow,
+      nextMRow: nextMRow
+    }, null);
 
   } catch(e) {
     Logger.log('apiGetCheckinLog 錯誤: ' + e.message + '\n' + e.stack);
@@ -1314,6 +1355,35 @@ function testGetCheckinLog() {
     if (d.total > 5) Logger.log('... 共 ' + d.total + ' 筆，僅顯示前 5 筆');
   } else {
     Logger.log('錯誤: ' + result.error);
+  }
+}
+
+function testGetCheckinLogIncremental() {
+  // 這裡使用有紀錄的日期來測試，以確保不是提早返回且看到 0 筆資料
+  const date = '2026/3/1'; // 原先是 new Date()，今天不一定有班程
+  Logger.log('== testGetCheckinLogIncremental | 第一次呼叫 (全部) ==');
+  const result1 = apiGetCheckinLog({ date: date });
+  
+  if (!result1.success) {
+    Logger.log('第一次呼叫錯誤: ' + result1.error);
+    return;
+  }
+  
+  const d1 = result1.data;
+  Logger.log('取得 ' + d1.total + ' 筆資料 | nextERow: ' + d1.nextERow + ', nextMRow: ' + d1.nextMRow);
+  
+  Logger.log('== 模擬增量呼叫 (第二次呼叫) ==');
+  const result2 = apiGetCheckinLog({ 
+    date: date, 
+    eStartRow: d1.nextERow, 
+    mStartRow: d1.nextMRow 
+  });
+  
+  if (result2.success) {
+    const d2 = result2.data;
+    Logger.log('增量取得 ' + d2.total + ' 筆資料 (預期0筆，因無新增) | nextERow: ' + d2.nextERow + ', nextMRow: ' + d2.nextMRow);
+  } else {
+    Logger.log('第二次呼叫錯誤: ' + result2.error);
   }
 }
 
