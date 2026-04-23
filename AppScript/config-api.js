@@ -545,17 +545,20 @@ function showConfigQRCodeDialog() {
     return;
   }
 
-  // 取得 Web App 部署 URL
+  // 從指令碼屬性讀取 Web App 部署 URL
+  // 設定方式：專案設定 → 指令碼屬性 → 新增屬性 WEB_APP_URL = https://script.google.com/macros/s/.../exec
+  const WEB_APP_URL_KEY = 'WEB_APP_URL';
   let webAppUrl = '';
   try {
-    webAppUrl = ScriptApp.getService().getUrl();
+    webAppUrl = (PropertiesService.getScriptProperties().getProperty(WEB_APP_URL_KEY) || '').trim();
   } catch (e) {
-    Logger.log('showConfigQRCodeDialog: 無法取得 Web App URL — ' + e.message);
+    Logger.log('showConfigQRCodeDialog: 讀取指令碼屬性失敗 — ' + e.message);
   }
   if (!webAppUrl) {
-    ui.alert('⚠️ 尚未部署 Web App',
-      '請先將此 AppScript 部署為「網頁應用程式」，再使用此功能。\n\n' +
-      '部署步驟：部署 → 新增部署 → 類型選「網頁應用程式」→ 執行身份選「我」→ 存取權選「任何人」。',
+    ui.alert('⚠️ 尚未設定 Web App URL',
+      '請至「專案設定 → 指令碼屬性」新增以下屬性後再試：\n\n' +
+      '屬性名稱：WEB_APP_URL\n' +
+      '值：https://script.google.com/macros/s/（你的部署ID）/exec',
       ui.ButtonSet.OK);
     return;
   }
