@@ -10,7 +10,7 @@ function onOpen() {
       .addItem('設定自動執行封存', 'setTriggerForupdateArchiveStatus')
       .addSeparator()
       .addItem('💾 儲存當前設定到登錄表', 'saveCurrentConfigToRegistry')
-      .addItem('📲 產生設定檔 QR Code URL', 'generateConfigQRCodeUrls')
+      .addItem('📱 選擇設定檔並顯示 QR Code', 'showConfigQRCodeDialog')
       .addItem('✅ 測試設定檔 API（全部班別）', 'testConfigGetAll')
       .addItem('📋 列出可用設定檔名稱', 'testListConfigs')
       .addItem('🔬 診斷表單參數', 'testReadFormParams')

@@ -522,6 +522,169 @@ function configJsonResponse(obj) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// 互動對話框：選擇設定檔並顯示 QR Code
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * showConfigQRCodeDialog
+ * 從選單觸發：彈出對話框，讓使用者選擇設定檔名稱，
+ * 即時顯示 QRPWA 用的 API 模式設定檔 QR Code。
+ *
+ * QR Code 內容格式：
+ *   {WebAppUrl}?action=getConfig&name={設定檔名稱}
+ */
+function showConfigQRCodeDialog() {
+  const ui = SpreadsheetApp.getUi();
+
+  // 取得所有可用設定檔名稱
+  const names = getAllAvailableConfigNames();
+  if (names.length === 0) {
+    ui.alert('⚠️ 無可用設定檔',
+      '請確認「班程」Sheet G欄有班別代碼、H欄有顯示名稱，且 建置系統注意事項!J1 有出勤模式。',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // 取得 Web App 部署 URL
+  let webAppUrl = '';
+  try {
+    webAppUrl = ScriptApp.getService().getUrl();
+  } catch (e) {
+    Logger.log('showConfigQRCodeDialog: 無法取得 Web App URL — ' + e.message);
+  }
+  if (!webAppUrl) {
+    ui.alert('⚠️ 尚未部署 Web App',
+      '請先將此 AppScript 部署為「網頁應用程式」，再使用此功能。\n\n' +
+      '部署步驟：部署 → 新增部署 → 類型選「網頁應用程式」→ 執行身份選「我」→ 存取權選「任何人」。',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // 建立選項 HTML
+  const optionsHtml = names
+    .map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>')
+    .join('');
+
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Noto Sans TC", Arial, sans-serif;
+    background: #f8f9fa;
+    padding: 20px;
+    color: #333;
+  }
+  h2 {
+    font-size: 16px;
+    color: #1a73e8;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  label {
+    font-size: 12px;
+    color: #555;
+    display: block;
+    margin-bottom: 4px;
+  }
+  select {
+    width: 100%;
+    padding: 9px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+  }
+  select:focus { border-color: #1a73e8; }
+  #qr-wrap {
+    margin-top: 18px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+  }
+  #qr-img {
+    display: block;
+    margin: 0 auto 12px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+  }
+  #config-label {
+    font-size: 13px;
+    font-weight: bold;
+    color: #1a73e8;
+    margin-bottom: 8px;
+  }
+  #url-box {
+    background: #f1f3f4;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #555;
+    word-break: break-all;
+    text-align: left;
+    line-height: 1.5;
+  }
+  .hint {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h2>📱 設定檔 QR Code</h2>
+
+  <label>選擇設定檔名稱：</label>
+  <select id="sel" onchange="refresh()">
+    ${optionsHtml}
+  </select>
+
+  <div id="qr-wrap">
+    <div id="config-label"></div>
+    <img id="qr-img" src="" width="240" height="240" alt="QR Code" />
+    <div id="url-box"></div>
+    <p class="hint">用 QRPWA 掃描此 QR Code 即可載入設定檔</p>
+  </div>
+
+<script>
+  var BASE = ${JSON.stringify(webAppUrl)};
+
+  function refresh() {
+    var name = document.getElementById('sel').value;
+    var url  = BASE + '?action=getConfig&name=' + encodeURIComponent(name);
+    var qrSrc = 'https://chart.googleapis.com/chart'
+      + '?chs=240x240&cht=qr&choe=UTF-8'
+      + '&chl=' + encodeURIComponent(url);
+
+    document.getElementById('config-label').textContent = name;
+    document.getElementById('qr-img').src = qrSrc;
+    document.getElementById('url-box').textContent = url;
+  }
+
+  // 初始化
+  refresh();
+</script>
+</body>
+</html>`;
+
+  const htmlOutput = HtmlService
+    .createHtmlOutput(htmlContent)
+    .setWidth(380)
+    .setHeight(520)
+    .setTitle('設定檔 QR Code');
+
+  ui.showModalDialog(htmlOutput, '📱 設定檔 QR Code');
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // 測試函式（在 Apps Script 編輯器直接執行）
 // ─────────────────────────────────────────────────────────────────────
 
