@@ -63,9 +63,86 @@ const STATUS_MAP = {
 // 請假狀態列表（用於判斷是否請假）
 const LEAVE_STATUSES = ['leave_public','leave_personal','leave_sick','leave_funeral','leave_wedding','leave_maternity'];
 
+// ── 試算表時區偏移（台灣 UTC+8）─────────────────────────────────────
+const SHEET_TZ_OFFSET_MS = 8 * 3600000;
+
 // ────────────────────────────────────────────────────────────────────
 // 工具函式
 // ────────────────────────────────────────────────────────────────────
+
+/**
+ * parseSheetTimestamp_ — 相容三種 Google Sheets 時間戳格式
+ *
+ * getValues() 依儲存格格式回傳不同型別：
+ *   ① Date 物件 → 儲存格已設為「日期時間」格式，直接使用
+ *   ② 數字      → 儲存格為「數字/一般」格式，值為 GS 序列值
+ *                 (自 1899/12/30 起的天數，小數部分代表當日時間)
+ *                 轉換公式：(serial - 25569) * 86400000 - TZ_OFFSET_MS
+ *   ③ 字串      → 儲存格為「純文字」，支援多種格式解析
+ *                 支援：ISO、yyyy/M/d HH:mm:ss、中文「上午/下午」
+ *
+ * @param  {Date|number|string} val
+ * @returns {Date|null}
+ */
+function parseSheetTimestamp_(val) {
+  if (val === null || val === undefined || val === '') return null;
+
+  // ① Date 物件
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+
+  // ② 數字（GS 序列值 或 Unix 毫秒戳）
+  if (typeof val === 'number') {
+    let ms;
+    if (val > 1e12) {
+      ms = val;           // Unix 毫秒戳
+    } else if (val > 1e9) {
+      ms = val * 1000;    // Unix 秒戳
+    } else {
+      // GS 序列值（現代日期約 40000~50000）
+      // 序列值為本地時間，需減去時區偏移取得 UTC 毫秒
+      ms = (val - 25569) * 86400000 - SHEET_TZ_OFFSET_MS;
+    }
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // ③ 字串
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return null;
+
+    // 標準解析（ISO 8601 / 英文格式）
+    let d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
+
+    // "yyyy/M/d HH:mm:ss" → 替換 / 為 -
+    d = new Date(s.replace(/\//g, '-'));
+    if (!isNaN(d.getTime())) return d;
+
+    // 中文「下午」（PM）
+    const pmM = s.match(/^(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s*下午\s*(\d{1,2}):(\d{2}):(\d{2})/);
+    if (pmM) {
+      const h = parseInt(pmM[2]);
+      d = new Date(pmM[1].replace(/\//g, '-') + 'T' +
+        String(h < 12 ? h + 12 : h).padStart(2, '0') + ':' + pmM[3] + ':' + pmM[4] + '+08:00');
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // 中文「上午」（AM）
+    const amM = s.match(/^(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s*上午\s*(\d{1,2}):(\d{2}):(\d{2})/);
+    if (amM) {
+      d = new Date(amM[1].replace(/\//g, '-') + 'T' +
+        String(parseInt(amM[2])).padStart(2, '0') + ':' + amM[3] + ':' + amM[4] + '+08:00');
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    return null;
+  }
+
+  return null;
+}
 
 /**
  * 建立統一回應格式
@@ -1136,8 +1213,8 @@ function apiGetCheckinLog(params) {
         const eData = eSheet.getRange(startRow, 1, nextERow - startRow, 7).getValues();
         eData.forEach(function(row) {
           if (!row[1]) return; // 無 ID 跳過
-          const ts = row[0] ? new Date(row[0]) : null;
-          if (!ts || isNaN(ts.getTime())) return;
+          const ts = parseSheetTimestamp_(row[0]);
+          if (!ts) return;
           const rowDate = new Date(ts.getTime());
           rowDate.setHours(0, 0, 0, 0);
           if (rowDate.getTime() !== targetDateMs) return;
@@ -1169,9 +1246,8 @@ function apiGetCheckinLog(params) {
         mData.forEach(function(row) {
           if (!row[1]) return; // 無 ID 跳過
           // 使用 F 欄（row[5]）作為報到時間，若空則 fallback 到 A 欄（row[0]）
-          const ts = (row[5] && new Date(row[5]).getTime ? new Date(row[5]) :
-                      row[0] ? new Date(row[0]) : null);
-          if (!ts || isNaN(ts.getTime())) return;
+          const ts = parseSheetTimestamp_(row[5]) || parseSheetTimestamp_(row[0]);
+          if (!ts) return;
           const rowDate = new Date(ts.getTime());
           rowDate.setHours(0, 0, 0, 0);
           if (rowDate.getTime() !== targetDateMs) return;

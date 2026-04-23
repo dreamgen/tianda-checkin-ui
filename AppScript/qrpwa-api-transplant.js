@@ -87,6 +87,11 @@ const TP_PH = {
   TYPE: '___TYPE',
 };
 
+// ── 試算表時區偏移 ────────────────────────────────────────────────
+// Google Sheets 序列值時間戳以「本地時間」儲存，需減去此偏移才能轉為 UTC。
+// 台灣 UTC+8 = 8 * 3600000。若試算表使用其他時區請修改此值。
+const TP_TZ_OFFSET_MS = 8 * 3600000;
+
 // ── 指令碼屬性 Key ─────────────────────────────────────────────────
 const TP_PROP_WEB_APP_URL = 'WEB_APP_URL';  // 儲存已部署 Web App URL
 
@@ -417,8 +422,8 @@ function tp_apiGetCheckinLog(params) {
         const eData = eSheet.getRange(nextERow, 1, eLastData - nextERow + 1, eCols).getValues();
         eData.forEach(function(row) {
           if (!row[TP_ESIGN_COL.ID]) return;
-          const ts = row[TP_ESIGN_COL.TIMESTAMP] ? new Date(row[TP_ESIGN_COL.TIMESTAMP]) : null;
-          if (!ts || isNaN(ts.getTime())) return;
+          const ts = tp_parseTimestamp(row[TP_ESIGN_COL.TIMESTAMP]);
+          if (!ts) return;
           const rowDate = new Date(ts); rowDate.setHours(0,0,0,0);
           if (rowDate.getTime() !== targetMs) return;
           const rv = String(row[TP_ESIGN_COL.VERIFY] || '').trim();
@@ -450,9 +455,9 @@ function tp_apiGetCheckinLog(params) {
         const mData = mSheet.getRange(nextMRow, 1, mLastData - nextMRow + 1, mCols).getValues();
         mData.forEach(function(row) {
           if (!row[TP_MSIGN_COL.ID]) return;
-          const ts = (row[TP_MSIGN_COL.CHECKIN_TS] ? new Date(row[TP_MSIGN_COL.CHECKIN_TS])
-                    : row[TP_MSIGN_COL.FORM_TS]    ? new Date(row[TP_MSIGN_COL.FORM_TS]) : null);
-          if (!ts || isNaN(ts.getTime())) return;
+          const ts = tp_parseTimestamp(row[TP_MSIGN_COL.CHECKIN_TS]) ||
+                     tp_parseTimestamp(row[TP_MSIGN_COL.FORM_TS]);
+          if (!ts) return;
           const rowDate = new Date(ts); rowDate.setHours(0,0,0,0);
           if (rowDate.getTime() !== targetMs) return;
           const rv = String(row[TP_MSIGN_COL.VERIFY] || '').trim();
@@ -512,8 +517,8 @@ function tp_apiGetActiveSchedule(params) {
 
     data.forEach(function(row) {
       if (!row[TP_SCHED_COL.DATE]) return;
-      const d = new Date(row[TP_SCHED_COL.DATE]);
-      if (isNaN(d.getTime())) return;
+      const d = tp_parseTimestamp(row[TP_SCHED_COL.DATE]);
+      if (!d) return;
       if (d <= today && (!latestDate || d > latestDate)) {
         latestDate   = d;
         latestClass  = String(row[TP_SCHED_COL.CLASS_NAME] || '');
@@ -727,6 +732,81 @@ function tp_nr(rangeName) {
   } catch(e) {
     return null;
   }
+}
+
+/**
+ * tp_parseTimestamp — 相容三種 Google Sheets 時間戳格式
+ *
+ * Google Sheets getValues() 依儲存格格式回傳不同型別：
+ *   ① Date 物件    → 儲存格已設為「日期時間」格式（正確，直接使用）
+ *   ② 數字         → 儲存格格式為「數字/一般」，值為 GS 序列值
+ *                    (GS 序列值 = 自 1899/12/30 起的天數，含小數代表時間)
+ *                    需轉換：(serial - 25569) * 86400000 - TZ_OFFSET_MS
+ *   ③ 字串         → 儲存格格式為「純文字」，嘗試各種格式解析
+ *                    支援：ISO、yyyy/M/d HH:mm:ss、含中文「上午/下午」
+ *
+ * @param  {Date|number|string} val  getValues() 回傳的原始值
+ * @returns {Date|null}
+ */
+function tp_parseTimestamp(val) {
+  if (val === null || val === undefined || val === '') return null;
+
+  // ① Date 物件
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+
+  // ② 數字（GS 序列值 或 Unix 毫秒戳）
+  if (typeof val === 'number') {
+    let ms;
+    if (val > 1e12) {
+      // Unix 毫秒戳（2001 年後 > 10^12）
+      ms = val;
+    } else if (val > 1e9) {
+      // Unix 秒戳
+      ms = val * 1000;
+    } else {
+      // Google Sheets 序列值（現代日期約在 40000~50000 範圍）
+      // 序列值以「本地時間」為基準，需減去時區偏移才能得到 UTC 毫秒
+      ms = (val - 25569) * 86400000 - TP_TZ_OFFSET_MS;
+    }
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // ③ 字串
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return null;
+
+    // 直接嘗試 JS 標準解析（ISO 8601 / 英文格式）
+    let d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
+
+    // 將 / 替換為 - 再試（"2026/4/23 14:32:05" → "2026-4-23 14:32:05"）
+    d = new Date(s.replace(/\//g, '-'));
+    if (!isNaN(d.getTime())) return d;
+
+    // 處理中文「下午」（PM）："2026/4/23 下午 2:32:05"
+    const pmM = s.match(/^(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s*下午\s*(\d{1,2}):(\d{2}):(\d{2})/);
+    if (pmM) {
+      const h = parseInt(pmM[2]);
+      const adjH = String(h < 12 ? h + 12 : h).padStart(2, '0');
+      d = new Date(pmM[1].replace(/\//g, '-') + 'T' + adjH + ':' + pmM[3] + ':' + pmM[4] + '+08:00');
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // 處理中文「上午」（AM）："2026/4/23 上午 2:32:05"
+    const amM = s.match(/^(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s*上午\s*(\d{1,2}):(\d{2}):(\d{2})/);
+    if (amM) {
+      d = new Date(amM[1].replace(/\//g, '-') + 'T' + String(parseInt(amM[2])).padStart(2, '0') + ':' + amM[3] + ':' + amM[4] + '+08:00');
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    return null;
+  }
+
+  return null;
 }
 
 /** 取得指定欄位最後一筆有資料的列號 */
