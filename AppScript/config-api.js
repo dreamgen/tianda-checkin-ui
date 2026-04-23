@@ -77,8 +77,8 @@ const BUILD_SCAN_MODE   = 'N1';  // ScanMode 數值（例：2）
 // ─────────────────────────────────────────────────────────────────────
 // 「班程」Sheet 欄位（0-indexed）
 // ─────────────────────────────────────────────────────────────────────
-const SCHED_COL_CODE = 6;   // G欄：班別代碼（"1"~"7"，同日多班用）
-// H欄 (index 7)：顯示班別名稱（例："第三週日"）— 不用於 classType 組合
+const SCHED_COL_CODE    = 6;   // G欄：班別代碼（"1"~"7"，同日多班用）
+const SCHED_COL_DISPLAY = 7;   // H欄：顯示班別名稱（例："第一週日"、"明德班-新莊"）
 
 // ─────────────────────────────────────────────────────────────────────
 // prefUrl_Attend 預填佔位符（解析 entry code 用）
@@ -165,17 +165,15 @@ function buildDynamicConfig(name) {
   // 1. 讀取系統參數
   const fp = readFormParams_();
 
-  // 2. 從名稱提取 classType
-  //    "天達大班-實體3" + baseName="天達大班" → classType="實體3"
-  const classType = extractClassType_(name, fp.baseName);
-
-  // 3. 驗證 classType 存在
-  const availableTypes = getAvailableClassTypes_(fp.attendanceMode);
-  if (availableTypes.length > 0 && !availableTypes.includes(classType)) {
-    Logger.log('buildDynamicConfig: 班別「' + classType + '」不在可用清單中');
-    Logger.log('  可用班別: [' + availableTypes.join(', ') + ']');
+  // 2. 從 entries 查找對應的班別（以 configName 完整比對）
+  const entries = getClassEntries_(fp.attendanceMode, fp.baseName);
+  const entry   = entries.find(e => e.configName === name);
+  if (!entry) {
+    Logger.log('buildDynamicConfig: 找不到設定檔「' + name + '」');
+    Logger.log('  可用設定檔: [' + entries.map(e => e.configName).join(', ') + ']');
     return null;
   }
+  const classType = entry.classType;   // 例："實體3"（用於 SettingField 值）
 
   // 4. 組合 SettingField
   //    順序：上課方式（固定值）→ 檢核密碼（固定值）→ 檢核ID（掃描）→ 檢核名稱（掃描）
@@ -236,52 +234,84 @@ function buildDynamicConfig(name) {
 
 /**
  * getAllAvailableConfigNames
- * 返回所有可用設定檔完整名稱（格式：{baseName}-{classType}）
+ * 返回所有可用設定檔完整名稱（格式：{baseName}-{顯示名稱}-{classType}）
+ * 例："天達大班-第一週日-實體1"
  * @returns {string[]}
  */
 function getAllAvailableConfigNames() {
-  const fp    = readFormParams_();
-  const types = getAvailableClassTypes_(fp.attendanceMode);
-  return types.map(type => (fp.baseName ? fp.baseName + '-' + type : type));
+  const fp = readFormParams_();
+  return getClassEntries_(fp.attendanceMode, fp.baseName).map(e => e.configName);
 }
 
 /**
  * getAvailableClassTypes_ (private)
- *
- * 從「班程」Sheet G欄讀取不重複的班別代碼，
- * 與 attendanceMode 組合產生完整 classType。
- *
- * 範例：
- *   attendanceMode = "實體"（由 J1="實體3" 去尾數字得到）
- *   G欄唯一值      = ["1","2","3","4","5","6","7"]
- *   → classType    = ["實體1","實體2","實體3","實體4","實體5","實體6","實體7"]
- *
- * @param  {string} attendanceMode  已去除尾部數字的模式字串（例："實體"）
+ * 返回所有可用 classType 字串（例：["實體1","實體2",...]）
+ * 供 buildDynamicConfig 驗證使用
+ * @param  {string} attendanceMode
  * @returns {string[]}
  */
 function getAvailableClassTypes_(attendanceMode) {
+  const fp = readFormParams_();
+  return getClassEntries_(attendanceMode || fp.attendanceMode, fp.baseName)
+    .map(e => e.classType);
+}
+
+/**
+ * getClassEntries_ (private)
+ *
+ * 從「班程」Sheet 讀取 G欄（代碼）× H欄（顯示名稱），
+ * 組合出完整的班別資訊物件陣列。
+ *
+ * 每筆格式：
+ *   {
+ *     code:        "3",              // G欄原始代碼
+ *     displayName: "第三週日",       // H欄顯示名稱（可含 "-"，如 "明德班-新莊"）
+ *     classType:   "實體3",          // attendanceMode + code（用於 SettingField 值）
+ *     configName:  "天達大班-第三週日-實體3"  // 完整設定檔名稱
+ *   }
+ *
+ * @param  {string} attendanceMode  已去除尾部數字的模式，例 "實體"
+ * @param  {string} baseName        建置系統注意事項!B1，例 "天達大班"
+ * @returns {Array.<{code:string, displayName:string, classType:string, configName:string}>}
+ */
+function getClassEntries_(attendanceMode, baseName) {
   const mode = (attendanceMode || '').trim();
+  const base = (baseName || '').trim();
 
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('班程');
   if (!sheet || sheet.getLastRow() < 2) return [];
 
   const lastRow = sheet.getLastRow();
-  // 只讀到 G欄（index 6 → 第7欄）
-  const data = sheet.getRange(2, 1, lastRow - 1, SCHED_COL_CODE + 1).getValues();
+  // 讀到 H欄（index 7 → 第8欄）
+  const data = sheet.getRange(2, 1, lastRow - 1, SCHED_COL_DISPLAY + 1).getValues();
 
-  const codes = new Set();
+  const seen    = new Set();
+  const entries = [];
+
   data.forEach(row => {
-    // 跳過空列（以第一欄是否有值判斷）
+    // 跳過空列
     if (!row[0] && !row[SCHED_COL_CODE]) return;
-    const codeG = String(row[SCHED_COL_CODE] || '').trim();
-    if (codeG) codes.add(codeG);
+
+    const code        = String(row[SCHED_COL_CODE]    || '').trim();
+    const displayName = String(row[SCHED_COL_DISPLAY] || '').trim();
+
+    if (!code || seen.has(code)) return;
+    seen.add(code);
+
+    const classType  = mode + code;            // 例："實體3"
+    // 設定檔名稱格式：{baseName}-{顯示名稱}-{classType}
+    // 例："天達大班-第三週日-實體3"
+    const configName = (base ? base + '-' : '') +
+                       (displayName ? displayName + '-' : '') +
+                       classType;
+
+    entries.push({ code, displayName, classType, configName });
   });
 
-  // 依代碼排序後拼接模式：mode + code
-  return Array.from(codes)
-    .sort()
-    .map(code => mode + code);
+  // 依 G欄代碼數字排序
+  entries.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  return entries;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -433,21 +463,29 @@ function parsePrefUrl_(prefUrl) {
 /**
  * extractClassType_ (private)
  *
- * 從設定檔名稱中提取 classType（去除 baseName 前綴）
- *   "天達大班-實體3" + baseName="天達大班" → "實體3"
- *   "實體3"          + baseName=""         → "實體3"（直接使用）
+ * 從設定檔名稱尾部提取 classType。
+ * 使用正則從名稱尾端比對 attendanceMode + 數字，
+ * 可安全處理 H 欄顯示名稱本身含 "-" 的情況（例："明德班-新莊"）。
+ *
+ * 例：
+ *   "天達大班-第三週日-實體3"   → "實體3"
+ *   "天達大班-明德班-新莊-實體5" → "實體5"
+ *
+ * @param  {string} name            設定檔名稱
+ * @param  {string} attendanceMode  已去除尾部數字的模式（例："實體"）
+ * @returns {string}
  */
-function extractClassType_(name, baseName) {
-  const prefix = baseName ? baseName + '-' : '';
-  if (prefix && name.startsWith(prefix)) {
-    return name.substring(prefix.length);
+function extractClassType_(name, attendanceMode) {
+  if (!name) return '';
+  const mode = (attendanceMode || '').trim();
+  if (mode) {
+    // 比對尾部：-{mode}{數字}
+    const match = name.match(new RegExp('-(' + mode + '\\d+)$'));
+    if (match) return match[1];
   }
-  // 不含 baseName 前綴 → 取最後一個 "-" 後的部分（容錯）
+  // fallback：取最後一個 "-" 之後的部分
   const dashIdx = name.lastIndexOf('-');
-  if (dashIdx !== -1 && baseName) {
-    return name.substring(dashIdx + 1);
-  }
-  return name;
+  return dashIdx !== -1 ? name.substring(dashIdx + 1) : name;
 }
 
 /**
@@ -526,7 +564,7 @@ function testConfigGetAll() {
   Logger.log('== testConfigGetAll ==');
   const names = getAllAvailableConfigNames();
   if (names.length === 0) {
-    Logger.log('⚠️ 無可用設定檔 — 請確認「班程」G欄有班別代碼，且 J1 有出勤模式');
+    Logger.log('⚠️ 無可用設定檔 — 請確認「班程」G欄有班別代碼、H欄有顯示名稱，且 J1 有出勤模式');
     return;
   }
   names.forEach(name => {
