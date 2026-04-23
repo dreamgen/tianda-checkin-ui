@@ -649,7 +649,7 @@ function showConfigQRCodeDialog() {
 
   <div id="qr-wrap">
     <div id="config-label"></div>
-    <img id="qr-img" src="" width="240" height="240" alt="QR Code" />
+    <img id="qr-img" src="" width="280" height="280" alt="QR Code" />
     <div id="url-box"></div>
     <p class="hint">用 QRPWA 掃描此 QR Code 即可載入設定檔</p>
   </div>
@@ -660,9 +660,8 @@ function showConfigQRCodeDialog() {
   function refresh() {
     var name = document.getElementById('sel').value;
     var url  = BASE + '?action=getConfig&name=' + encodeURIComponent(name);
-    var qrSrc = 'https://chart.googleapis.com/chart'
-      + '?chs=240x240&cht=qr&choe=UTF-8'
-      + '&chl=' + encodeURIComponent(url);
+    var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=50'
+      + '&data=' + encodeURIComponent(url);
 
     document.getElementById('config-label').textContent = name;
     document.getElementById('qr-img').src = qrSrc;
