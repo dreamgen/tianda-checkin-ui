@@ -8,6 +8,14 @@ function onOpen() {
       .addItem('初始化設定', 'newFormSetting')
       .addItem('設定自動更新簡單報到程序', 'setTriggerForcheckEasyAttendUpdate')
       .addItem('設定自動執行封存', 'setTriggerForupdateArchiveStatus')
+      .addSeparator()
+      .addItem('💾 儲存當前設定到登錄表', 'saveCurrentConfigToRegistry')
+      .addItem('📲 產生設定檔 QR Code URL', 'generateConfigQRCodeUrls')
+      .addItem('✅ 測試設定檔 API（全部班別）', 'testConfigGetAll')
+      .addItem('📋 列出可用設定檔名稱', 'testListConfigs')
+      .addItem('🔬 診斷表單參數', 'testReadFormParams')
+      .addItem('🔍 診斷 analyzeFormParams', 'analyzeFormParams')
+      .addItem('📊 診斷班程班別', 'analyzeScheduleClasses')
       .addToUi();
   ui.createMenu('📊 簽到管理')
     .addItem('🔄 更新簽到彙整', 'consolidateAttendanceData')
@@ -392,14 +400,55 @@ function setupTrigger() {
   SpreadsheetApp.getUi().alert('✅ 已設定每天凌晨2點自動更新！');
 }
 
-function doGet(e){
-  let doMethod = e.parameter["executeMethod"];
-  switch(doMethod){
+function doGet(e) {
+  const params = e.parameter || {};
+
+  // ── 【新增】設定檔 API 路由 ─────────────────────────────────────
+  // 偵測條件：
+  //   (a) 帶有 name 參數 → verify 或 getConfig
+  //   (b) action=listConfigs（不需要 name）→ 列出所有可用設定檔
+  const action_ = (params['action'] || '').trim();
+  if (action_ === 'listConfigs') {
+    try {
+      return handleConfigList();
+    } catch (err) {
+      Logger.log('doGet listConfigs 錯誤: ' + err.message);
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'error', message: '伺服器錯誤：' + err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  const configName = (params['name'] || '').trim();
+  if (configName) {
+    const action = (action_ || 'verify');
+    try {
+      switch (action) {
+        case 'verify':
+          return handleConfigVerify(configName);
+        case 'getConfig':
+          return handleConfigGet(configName);
+        default:
+          return ContentService
+            .createTextOutput(JSON.stringify({ status: 'error', message: '未知的 action：' + action + '（可用：verify, getConfig）' }))
+            .setMimeType(ContentService.MimeType.JSON);
+      }
+    } catch (err) {
+      Logger.log('doGet 設定檔 API 錯誤: ' + err.message);
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'error', message: '伺服器錯誤：' + err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ── 【原有】executeMethod 路由 ────────────────────────────────────
+  let doMethod = params["executeMethod"];
+  switch (doMethod) {
     case "setTriggerForcheckEasyAttendUpdate":
-      var trigger =  ScriptApp.newTrigger('setTriggerForcheckEasyAttendUpdate')
-      .timeBased()
-      .after(1000)
-      .create();
+      ScriptApp.newTrigger('setTriggerForcheckEasyAttendUpdate')
+        .timeBased()
+        .after(1000)
+        .create();
       return ContentService
         .createTextOutput(JSON.stringify({ success: true, message: 'Trigger 已設定' }))
         .setMimeType(ContentService.MimeType.JSON);
